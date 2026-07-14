@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#F1F0EC" />
+<title>Splitwise</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://api.fontshare.com/v2/css?f[]=space-grotesk@400,500,600,700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #F1F0EC;
+    --ink: #111110;
+    --lime: #CBEE4E;
+    --coral: #F79489;
+    --sky: #8BD9E8;
+    --surface: #FFFFFF;
+    --muted: #6b6b66;
+    --coral-d: #c75b50;
+    --lime-d: #6e8a1e;
+    --sky-d: #3a8a9c;
+    --radius: 26px;
+    --pill: 999px;
+    --font: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100%;
+  }
+  body { overflow-x: hidden; }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: 8px 18px calc(40px + env(safe-area-inset-bottom));
+    position: relative;
+  }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .topbar { display:flex; align-items:center; justify-content:space-between; margin: 10px 0 14px; gap:10px; }
+  .icon-btn {
+    width:44px; height:44px; border-radius:50%;
+    background: var(--ink); color:#fff; border:none;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0; padding:0;
+  }
+  .icon-btn .ic svg { width:20px; height:20px; display:block; }
+  .icon-btn.small { width:32px; height:32px; background: transparent; color: var(--coral-d); border: 1px solid rgba(199,91,80,0.25); }
+  .icon-btn.small .ic svg { width:16px; height:16px; }
+  .icon-btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
+  .topbar-title { font-size:13px; font-weight:500; color: var(--muted); text-align:center; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .spacer44 { width:44px; flex-shrink:0; }
+
+  .headline { font-size: 32px; font-weight:700; line-height:1.05; letter-spacing:-0.02em; margin: 6px 2px 4px; }
+  .subhead { font-size: 14px; color: var(--muted); margin: 0 2px 18px; }
+
+  .banner { background: var(--coral); color: var(--ink); border-radius: 16px; padding: 12px 14px; font-size:13px; margin-bottom: 16px; font-weight:500; }
+
+  .field-label { font-size: 13px; font-weight:500; color: var(--muted); margin: 22px 2px 10px; }
+
+  .pill {
+    border-radius: var(--pill); padding: 10px 16px;
+    border: 1.5px solid var(--ink); background: transparent; color: var(--ink);
+    font-family: var(--font); font-weight:500; font-size:14px; cursor:pointer;
+    transition: background .12s, color .12s;
+  }
+  .pill.on { background: var(--ink); color: #fff; }
+  .pill.small { padding: 7px 12px; font-size:12px; }
+
+  .pill-cta {
+    display:block; width:100%; border-radius: var(--pill); padding: 16px;
+    background: var(--ink); color:#fff; border:none;
+    font-family:var(--font); font-weight:600; font-size:16px; cursor:pointer;
+    margin-top: 26px;
+  }
+  .pill-cta.disabled { opacity:0.35; pointer-events:none; }
+  .add-pill { background: var(--lime); color: var(--ink); }
+  .add-group-btn { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); display:flex; align-items:center; justify-content:center; gap: 6px; }
+  .add-group-btn .ic svg { width:18px; height:18px; }
+  .leave-group-btn { display:block; width:100%; background:transparent; color: var(--coral-d); border:none; font-family:var(--font); font-size:14px; font-weight:500; cursor:pointer; margin-top:16px; padding:8px; }
+
+  .text-input {
+    width:100%; border:1.5px solid var(--ink); border-radius: 16px;
+    padding: 14px 16px; font-family:var(--font); font-size:15px;
+    background: var(--surface); color:var(--ink); outline:none;
+  }
+
+  .avatar {
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:700; flex-shrink:0; overflow:hidden; user-select:none;
+    position:relative; background: var(--surface);
+  }
+  .avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+  .avatar-lime { background: var(--lime); color: var(--ink); }
+  .avatar-coral { background: var(--coral); color: var(--ink); }
+  .avatar-sky { background: var(--sky); color: var(--ink); }
+  .avatar-ink  { background: var(--ink); color: #fff; }
+
+  .card-lime { background: var(--lime); }
+  .card-coral { background: var(--coral); }
+  .card-sky { background: var(--sky); }
+
+  /* ---- Wallet (Apple-Wallet-style group stack) ---- */
+  .wallet-stack { display:flex; flex-direction:column; gap: 12px; margin-top: 8px; }
+  .wallet-card {
+    border-radius: var(--radius); padding: 18px 20px;
+    border: 1px solid rgba(17,17,16,0.06);
+    cursor:pointer; position:relative; overflow:hidden;
+    min-height: 120px; display:flex; flex-direction:column; justify-content:space-between;
+    transition: transform .15s ease;
+  }
+  .wallet-card:active { transform: scale(0.98); }
+  .wallet-card.lime { background: var(--lime); }
+  .wallet-card.coral { background: var(--coral); }
+  .wallet-card.sky { background: var(--sky); }
+  .wc-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .wc-title { font-size: 22px; font-weight:700; letter-spacing:-0.02em; line-height:1.1; word-break:break-word; }
+  .wc-sub { font-size: 13px; opacity:0.75; font-weight:500; margin-top:4px; }
+  .wc-net { font-size: 20px; font-weight:700; margin-top: 10px; }
+  .wc-pfp { width:40px; height:40px; border-radius:50%; overflow:hidden; flex-shrink:0; border: 2px solid rgba(17,17,16,0.1); background: rgba(255,255,255,0.5); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; }
+  .wc-pfp img { width:100%; height:100%; object-fit:cover; display:block; }
+
+  /* ---- Balances deck ---- */
+  .deck { position:relative; height: 244px; margin: 16px 0 22px; }
+  .deck-card {
+    position:absolute; left:0; right:0; height: 200px;
+    border-radius: var(--radius); padding: 20px;
+    border: 1px solid rgba(17,17,16,0.06);
+    display:flex; flex-direction:column; justify-content:space-between;
+    transition: transform .18s ease;
+  }
+  .deck-top { display:flex; align-items:center; justify-content:space-between; }
+  .deck-who { font-size:14px; font-weight:600; }
+  .deck-who .you { font-weight:400; opacity:0.7; }
+  .deck-amt { font-size: 48px; font-weight:700; letter-spacing:-0.03em; line-height:1; }
+  .deck-amt-sm { font-size: 22px; font-weight:700; }
+  .deck-label { font-size: 13px; opacity:0.75; font-weight:500; }
+
+  .member-list { display:flex; flex-direction:column; gap: 8px; }
+  .member {
+    display:flex; align-items:center; gap: 12px;
+    background: var(--surface); border-radius: 18px; padding: 12px 14px;
+    cursor:pointer; border: 1px solid rgba(17,17,16,0.05);
+  }
+  .member-info { flex:1; min-width:0; }
+  .member-name { font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .member-name .you { font-weight:400; opacity:0.6; }
+  .member-label { font-size:12px; margin-top:2px; }
+  .label-coral { color: var(--coral-d); } .label-lime { color: var(--lime-d); } .label-sky { color: var(--sky-d); }
+  .member-amt { font-size: 18px; font-weight:700; }
+  .amt-coral { color: var(--coral-d); } .amt-lime { color: var(--lime-d); } .amt-sky { color: var(--sky-d); }
+  .member-detail { background: var(--surface); border-radius: 14px; padding: 10px 14px; margin: -4px 0 10px; border: 1px solid rgba(17,17,16,0.05); }
+  .mini-row { display:flex; justify-content:space-between; gap:10px; padding: 7px 0; font-size:13px; }
+  .mini-row span:first-child { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: var(--muted); }
+
+  .amount-hero { display:flex; align-items:flex-end; justify-content:center; gap:6px; margin: 24px 0 8px; }
+  .amount-hero .currency { font-size: 40px; font-weight:700; color: var(--ink); opacity:0.35; padding-bottom: 10px; }
+  .amount-hero input {
+    font-family:var(--font); font-weight:700; font-size: 72px;
+    letter-spacing:-0.03em; border:none; background:transparent; color:var(--ink);
+    width: 100%; max-width: 260px; text-align:left; outline:none; padding: 0;
+  }
+  .amount-hero input::placeholder { color: rgba(17,17,16,0.18); }
+  .split-hint { font-size:12px; color: var(--muted); margin: 6px 2px 0; }
+  .split-amt-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .split-amt-row .sn { font-size:13px; font-weight:500; min-width:40px; }
+  .split-amt-row input {
+    flex:1; border:1.5px solid var(--ink); border-radius:var(--pill);
+    padding:9px 14px; font-family:var(--font); font-size:15px;
+    background:var(--surface); color:var(--ink); outline:none;
+    text-align:right; max-width:120px;
+  }
+  .split-amt-row input::placeholder { color: rgba(17,17,16,0.25); }
+
+  .currency-row { display:flex; gap: 8px; overflow-x:auto; padding: 4px 2px; -webkit-overflow-scrolling:touch; }
+  .cur-pill {
+    flex-shrink:0; border-radius: var(--pill); padding: 8px 14px;
+    border: 1.5px solid var(--ink); background: transparent; color: var(--ink);
+    font-family: var(--font); font-weight:500; font-size:13px; cursor:pointer;
+    display:flex; align-items:center; gap: 6px; transition: background .12s, color .12s;
+  }
+  .cur-pill.on { background: var(--ink); color: #fff; }
+  .cur-sym { font-size: 16px; font-weight:700; }
+  .cur-code { font-size: 11px; opacity: 0.7; }
+
+  .avatar-row { display:flex; gap: 16px; overflow-x:auto; padding: 8px 8px 12px; -webkit-overflow-scrolling:touch; }
+  .avatar-pick { background:transparent; border:none; display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; }
+  .avatar-pick .avatar { transition: transform .15s, outline-color .15s; outline: 3px solid transparent; outline-offset: 2px; }
+  .avatar-pick.sel .avatar { outline-color: var(--ink); transform: scale(1.04); }
+  .avatar-name { font-size:12px; color: var(--ink); max-width:60px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .stats-card { background: var(--lime); border-radius: var(--radius); padding: 22px; }
+  .stats-label { font-size: 13px; font-weight:500; color: rgba(17,17,16,0.7); }
+  .stats-total { font-size: 40px; font-weight:700; letter-spacing:-0.03em; margin: 4px 0 20px; line-height:1; }
+  .bars { display:flex; flex-direction:column; gap: 11px; }
+  .bar-row { display:flex; align-items:center; gap: 10px; }
+  .bar-label { width: 60px; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar-track { flex:1; height: 14px; background: rgba(17,17,16,0.12); border-radius: var(--pill); overflow:hidden; }
+  .bar-fill { height:100%; background: var(--ink); border-radius: var(--pill); min-width: 2px; }
+  .bar-val { font-size:12px; font-weight:600; min-width: 56px; text-align:right; }
+
+  .settle-list { display:flex; flex-direction:column; gap: 8px; }
+  .settle-row { display:flex; align-items:center; gap: 12px; background: var(--surface); border-radius: 18px; padding: 12px 14px; border: 1px solid rgba(17,17,16,0.05); }
+  .settle-who { display:flex; align-items:center; gap: 8px; flex:1; min-width:0; font-size:13px; font-weight:500; }
+  .settle-who .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 64px; }
+  .settle-who .arrow { color: var(--muted); flex-shrink:0; }
+  .settle-amt { font-size: 17px; font-weight:700; }
+
+  .cluster-wrap { display:flex; justify-content:center; align-items:center; margin-top: 30px; gap: 0; }
+  .cluster-avatar { display:inline-flex; }
+  .cluster-avatar + .cluster-avatar { margin-left: -12px; }
+  .cluster-avatar.extra { width:36px; height:36px; background: var(--ink); color:#fff; font-size:13px; font-weight:600; border-radius:50%; align-items:center; justify-content:center; border: 2px solid var(--bg); }
+
+  .act-list { display:flex; flex-direction:column; gap: 8px; }
+  .act-row { display:flex; align-items:center; gap: 12px; background: var(--surface); border-radius: 18px; padding: 12px 14px; border: 1px solid rgba(17,17,16,0.05); }
+  .act-kind { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .act-kind.expense { background: var(--sky); color: var(--ink); }
+  .act-kind.settle { background: var(--lime); color: var(--ink); }
+  .act-kind .ic svg { width:18px; height:18px; display:block; }
+  .act-info { flex:1; min-width:0; }
+  .act-title { font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .act-sub { font-size:12px; color: var(--muted); margin-top:1px; }
+  .act-amt { font-size: 16px; font-weight:700; flex-shrink:0; }
+
+  .empty { text-align:center; padding: 60px 24px; color: var(--muted); }
+  .empty .big { font-size: 22px; font-weight:700; color: var(--ink); margin-bottom: 8px; }
+  .empty .sub { font-size:14px; }
+  .muted { color: var(--muted); }
+  .center { text-align:center; }
+
+  .loading-overlay {
+    position:fixed; inset:0; background: rgba(241,240,236,0.82);
+    display:none; align-items:center; justify-content:center; z-index:100;
+  }
+  body.loading .loading-overlay, body.busy .loading-overlay { display:flex; }
+  .spinner { width:34px; height:34px; border:3px solid var(--ink); border-top-color: transparent; border-radius:50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-toast {
+    position: fixed; top: 12px; left: 12px; right: 12px;
+    background: var(--coral); color: var(--ink);
+    border-radius: 14px; padding: 12px 16px; font-size: 13px;
+    font-weight: 500; z-index: 200; display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    max-width: 480px; margin: 0 auto; pointer-events: auto;
+  }
+  .error-toast .msg { flex: 1; min-width: 0; word-break: break-word; }
+  .error-toast .dismiss { flex-shrink: 0; background: none; border: none; font-size: 18px; cursor: pointer; color: inherit; opacity: 0.7; padding: 0 2px; line-height: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="screen-wallet" class="screen active"></section>
+  <section id="screen-balances" class="screen"></section>
+  <section id="screen-add" class="screen"></section>
+  <section id="screen-settle" class="screen"></section>
+  <section id="screen-activity" class="screen"></section>
+</div>
+<div class="loading-overlay"><div class="spinner"></div></div>
+
+<script>
+(function () {
+  const TG = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+  const ACCENTS = ['lime', 'coral', 'sky'];
+  const CURRENCIES = [
+    { code: 'USD', symbol: '$',  label: 'USD' },
+    { code: 'EUR', symbol: '€',  label: 'EUR' },
+    { code: 'GBP', symbol: '£',  label: 'GBP' },
+    { code: 'RUB', symbol: '₽',  label: 'RUB' },
+    { code: 'GEL', symbol: '₾',  label: 'GEL' },
+  ];
+  const sym = (code) => { const c = CURRENCIES.find((x) => x.code === code); return c ? c.symbol : '$'; };
+  function fmtNum(n) { n = Number(n) || 0; if (n % 1 === 0) return String(n); var s = parseFloat(n.toFixed(2)).toString(); return s; }
+  const RATES_VS_EUR = { EUR: 1, USD: 0.92, GBP: 1.18, GEL: 0.34, RUB: 0.0096 };
+  function convertAmt(amt, from, to) {
+    if (!amt || from === to) return Number(amt) || 0;
+    var fr = RATES_VS_EUR[from], tr = RATES_VS_EUR[to];
+    if (!fr || !tr) return Number(amt) || 0;
+    return (Number(Math.abs(amt) || 0) * fr / tr);
+  }
+
+  const ICONS = {
+    back:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+    list:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+    plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>'
+  };
+  const icon = (n) => '<span class="ic">' + (ICONS[n] || '') + '</span>';
+
+  // When TG is available, Telegram's header provides a BackButton — hide our custom one
+  const backOrSpacer = (id) => TG
+    ? '<div class="spacer44"></div>'
+    : '<button class="icon-btn" id="' + id + '">' + icon('back') + '</button>';
+
+  const state = {
+    chatId: 'default',
+    chatTitle: 'Your expenses',
+    chatTitleKnown: false,
+    user: { id: 0, name: 'Guest', username: '', photoUrl: '' },
+    users: [],
+    usersInfo: {},
+    balances: {},
+    balancesPerCurrency: {},
+    expenses: [],
+    transfers: [],
+    transfersByCurrency: [],
+    settlements: [],
+    groups: [],
+    defaultCurrency: 'EUR',
+    currencyCounts: {},
+    currencies: ['EUR'],
+    expenseShares: {},
+    screen: 'wallet',
+    loading: false,
+    error: null,
+    expanded: null,
+    initialGroup: null,
+    chatTitleKnown: false,
+    add: { amount: '', payer: null, selected: new Set(), desc: '', currency: '', splitAmounts: {} }
+  };
+
+  const $  = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
+  const money   = (n, cur) => sym(cur || 'USD') + Math.abs(Number(n) || 0).toFixed(2);
+  const signed  = (n, cur) => { const v = Number(n) || 0; return (v < 0 ? '-' : '+') + sym(cur || 'USD') + Math.abs(v).toFixed(2); };
+  const initials = (name) => {
+    const p = (name || '?').trim().split(/\s+/);
+    const f = (p[0] && p[0][0]) || '';
+    const s = (p[1] && p[1][0]) || '';
+    return (f + s).toUpperCase() || (p[0] || '?').slice(0, 2).toUpperCase();
+  };
+  const accentFor = (name) => { let h = 0; for (const c of (name || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return ACCENTS[h % ACCENTS.length]; };
+  const esc = (s) => (s == null ? '' : String(s)).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+  function avatar(name, size, photoUrl) {
+    size = size || 40;
+    const a = accentFor(name);
+    if (photoUrl) {
+      return '<div class="avatar avatar-' + a + '" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.36) + 'px"><img src="' + esc(photoUrl) + '" alt="" onerror="this.style.display=\'none\'" /></div>';
+    }
+    return '<div class="avatar avatar-' + a + '" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.36) + 'px">' + esc(initials(name)) + '</div>';
+  }
+
+  function userAvatar(name, size) {
+    const info = state.usersInfo[name] || {};
+    return avatar(name, size, info.photo_url);
+  }
+
+  function groupPhotoImg(chatId, size) {
+    return '/api/group_photo?chat_id=' + encodeURIComponent(chatId) + '&r=' + (size || 40);
+  }
+
+  function safe(fn) { try { fn(); } catch (e) { /* ignore TG API errors */ } }
+  function haptic(type, sub) { safe(function () { if (!TG || !TG.HapticFeedback) return; sub ? TG.HapticFeedback.impact(sub) : TG.HapticFeedback.notification(type); }); }
+  function initTelegram() {
+    if (!TG) return;
+    safe(() => TG.ready());
+    safe(() => TG.expand());
+    safe(() => TG.setHeaderColor('#F1F0EC'));
+    safe(() => TG.setBackgroundColor('#F1F0EC'));
+    safe(() => TG.BackButton.onClick(onBackButton));
+    safe(() => { TG.isVerticalSwipesEnabled = true; });
+  }
+
+  var _touchStartY = 0, _touchOnInput = false;
+  window.addEventListener('touchstart', function (e) {
+    _touchStartY = e.touches[0].clientY;
+    _touchOnInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
+  }, { passive: true });
+  window.addEventListener('touchmove', function (e) {
+    if (!_touchOnInput && e.touches[0].clientY - _touchStartY > 40) {
+      var active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && !active.classList.contains('split-amt-input')) {
+        if (e.target.closest && e.target.closest('#screen-add')) return;
+        active.blur();
+      }
+    }
+  }, { passive: true });
+
+  function recoverContext() {
+    let sp = '';
+    let chat = null;
+    if (TG && TG.initDataUnsafe) {
+      sp = TG.initDataUnsafe.start_param || '';
+      chat = TG.initDataUnsafe.chat || null;
+      const u = TG.initDataUnsafe.user;
+      if (u) state.user = {
+        id: u.id || 0,
+        name: u.first_name || u.username || ('User ' + u.id),
+        username: u.username || '',
+        photoUrl: u.photo_url || ''
+      };
+    }
+    // Debug logging — visible in browser console / Telegram's webview inspector
+    console.log('[Nova] start_param:', JSON.stringify(sp), '| chat:', chat ? JSON.stringify({id: chat.id, title: chat.title, type: chat.type}) : null, '| user:', state.user.id ? JSON.stringify({id: state.user.id, name: state.user.name, username: state.user.username}) : 'none');
+    if (/^g\d+$/.test(sp)) {
+      state.chatId = '-' + sp.slice(1);
+      state.initialGroup = state.chatId;
+    } else {
+      state.chatId = 'default';
+      state.initialGroup = null;
+    }
+    if (chat && chat.title) {
+      state.chatTitle = chat.title;
+      state.chatTitleKnown = true;
+    } else {
+      state.chatTitle = state.chatId === 'default' ? 'Your expenses' : 'Loading…';
+      state.chatTitleKnown = false;
+    }
+  }
+
+  async function apiBalances() {
+    const params = new URLSearchParams({
+      chat_id: state.chatId,
+      current_user: state.user.name,
+      tg_user_id: String(state.user.id || ''),
+      username: state.user.username || '',
+      photo_url: state.user.photoUrl || '',
+      chat_title: state.chatTitleKnown ? (state.chatTitle || '') : ''
+    });
+    const r = await fetch('/api/balances?' + params.toString());
+    if (!r.ok) throw new Error('Could not load balances');
+    return r.json();
+  }
+  async function apiGroups() {
+    const params = new URLSearchParams({ current_user: state.user.name, tg_user_id: String(state.user.id || '') });
+    const r = await fetch('/api/groups?' + params.toString());
+    if (!r.ok) throw new Error('Could not load groups');
+    return r.json();
+  }
+  async function apiAdd(p) {
+    const r = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+    if (!r.ok) throw new Error('Could not add expense');
+    return r.json();
+  }
+  async function apiDelete(tx_id) {
+    const r = await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: state.chatId, tx_id: tx_id }) });
+    if (!r.ok) throw new Error('Could not delete');
+    return r.json();
+  }
+  async function apiSettle(from_user, to_user, amount, currency) {
+    const r = await fetch('/api/settle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: state.chatId, from_user: from_user, to_user: to_user, amount: amount, currency: currency || 'EUR' }) });
+    if (!r.ok) throw new Error('Could not settle');
+    return r.json();
+  }
+
+  function setLoading(on) { document.body.classList.toggle('loading', on); }
+  function setBusy(on) { document.body.classList.toggle('busy', on); }
+
+  async function loadData() {
+    setLoading(true);
+    state.error = null;
+    try {
+      const d = await apiBalances();
+      state.users = d.users || [];
+      state.balances = d.balances || {};
+      state.balancesPerCurrency = d.balances_per_currency || {};
+      state.expenses = d.expenses || [];
+      state.transfers = d.transfers || [];
+      state.transfersByCurrency = d.transfers_by_currency || [];
+      state.settlements = d.settlements || [];
+      state.usersInfo = {};
+      (d.users_info || []).forEach((u) => { state.usersInfo[u.name] = u; });
+      if (d.group_title) { state.chatTitle = d.group_title; state.chatTitleKnown = true; }
+      state.defaultCurrency = d.default_currency || 'EUR';
+      state.currencyCounts = d.currency_counts || {};
+      state.currencies = d.currencies || ['EUR'];
+      state.expenseShares = d.expense_shares || {};
+    } catch (e) {
+      state.error = e.message;
+    } finally {
+      setLoading(false);
+      render();
+    }
+  }
+
+  async function loadGroups() {
+    setLoading(true);
+    state.error = null;
+    try {
+      const d = await apiGroups();
+      state.groups = d.groups || [];
+    } catch (e) {
+      state.error = e.message;
+    } finally {
+      setLoading(false);
+      render();
+    }
+  }
+
+  function openGroup(chatId, title) {
+    state.chatId = chatId;
+    state.chatTitle = title || 'Group expenses';
+    state.chatTitleKnown = !!title;
+    state.screen = 'balances';
+    state.expanded = null;
+    updateBackButton();
+    render();
+    loadData();
+    window.scrollTo(0, 0);
+  }
+
+  function go(screen) {
+    state.screen = screen;
+    state.expanded = null;
+    updateBackButton();
+    render();
+    document.getElementById('app').scrollTop = 0;
+    window.scrollTo(0, 0);
+  }
+
+  function onBackButton() {
+    if (state.screen === 'wallet') { safe(() => TG.close()); return; }
+    if (state.screen === 'balances') { state.screen = 'wallet'; updateBackButton(); render(); loadGroups(); return; }
+    go('balances');
+  }
+
+  function updateBackButton() {
+    if (!TG) return;
+    safe(() => { if (state.screen === 'wallet') TG.BackButton.hide(); else TG.BackButton.show(); });
+  }
+
+  function render() {
+    ['wallet', 'balances', 'add', 'settle', 'activity'].forEach(function (s) {
+      const sec = document.getElementById('screen-' + s);
+      if (sec) sec.classList.toggle('active', s === state.screen);
+    });
+    if (state.screen === 'wallet') renderWallet();
+    else if (state.screen === 'balances') renderBalances();
+    else if (state.screen === 'add') renderAdd();
+    else if (state.screen === 'settle') renderSettle();
+    else if (state.screen === 'activity') renderActivity();
+  }
+
+  function renderWallet() {
+    const sec = $('#screen-wallet');
+    if (state.loading) { sec.innerHTML = ''; return; }
+    if (state.error) { sec.innerHTML = '<div class="empty"><div class="big">' + esc(state.error) + '</div><button class="pill-cta" id="retry">Retry</button></div>'; $('#retry').addEventListener('click', loadGroups); return; }
+
+    const noUser = !TG || !(TG.initDataUnsafe && TG.initDataUnsafe.user);
+    const groups = state.groups;
+
+    if (!groups.length) {
+      sec.innerHTML = (noUser ? '<div class="banner">Opened outside Telegram — launch via the bot to track your own expenses.</div>' : '') +
+        '<div class="topbar"><div class="spacer44"></div><div class="topbar-title">Your groups</div><div class="spacer44"></div></div>' +
+        '<h1 class="headline">Your wallet</h1>' +
+        '<div class="subhead">All your split groups in one place</div>' +
+        '<div class="empty"><div class="big">No groups yet</div><div class="sub">Add Nova to a group chat to start tracking expenses.</div></div>' +
+        '<button class="pill-cta add-group-btn" id="add-to-group">' + icon('plus') + ' Add Nova to a group</button>';
+      bindAddToGroup(sec);
+      return;
+    }
+
+    const cards = groups.map((g, i) => {
+      const accent = ACCENTS[i % ACCENTS.length];
+      const net = Number(g.net || 0);
+      const gCur = g.default_currency || 'EUR';
+      let netLabel;
+      if (Math.abs(net) < 0.01) netLabel = 'settled up';
+      else if (net < 0) netLabel = 'you owe ' + money(net, gCur);
+      else netLabel = "you're owed " + money(net, gCur);
+      const pfp = '<div class="wc-pfp"><img src="' + groupPhotoImg(g.chat_id, 80) + '" alt="" onerror="this.parentNode.innerHTML=\'' + esc(initials(g.title)).replace(/'/g, "\\'") + '\'"/></div>';
+      const mc = g.member_count || 0;
+      return '<div class="wallet-card ' + accent + '" data-chat="' + esc(g.chat_id) + '" data-title="' + esc(g.title) + '">' +
+        '<div class="wc-top"><div><div class="wc-title">' + esc(g.title) + '</div><div class="wc-sub">' + mc + ' member' + (mc === 1 ? '' : 's') + ' · ' + money(g.total_spend || 0, gCur) + ' total</div></div>' + pfp + '</div>' +
+        '<div class="wc-net">' + netLabel + '</div>' +
+      '</div>';
+    }).join('');
+
+    sec.innerHTML =
+      (noUser ? '<div class="banner">Opened outside Telegram — launch via the bot to track your own expenses.</div>' : '') +
+      '<div class="topbar"><div class="spacer44"></div><div class="topbar-title">Your groups</div><div class="spacer44"></div></div>' +
+      '<h1 class="headline">Your wallet</h1>' +
+      '<div class="subhead">' + groups.length + ' group' + (groups.length === 1 ? '' : 's') + ' · tap to open</div>' +
+      '<div class="wallet-stack">' + cards + '</div>' +
+      '<button class="pill-cta add-group-btn" id="add-to-group">' + icon('plus') + ' Add Nova to a group</button>';
+
+    $$('.wallet-card', sec).forEach((c) => c.addEventListener('click', () => openGroup(c.getAttribute('data-chat'), c.getAttribute('data-title'))));
+    bindAddToGroup(sec);
+  }
+
+  function bindAddToGroup(sec) {
+    const btn = $('#add-to-group', sec);
+    if (btn) btn.addEventListener('click', () => {
+      if (TG && TG.openTelegramLink) {
+        TG.openTelegramLink('https://t.me/rosecap_nova_bot?startgroup=true');
+      } else {
+        window.open('https://t.me/rosecap_nova_bot?startgroup=true', '_blank');
+      }
+    });
+  }
+
+  function renderBalances() {
+    const sec = $('#screen-balances');
+    if (state.loading) { sec.innerHTML = ''; return; }
+    if (state.error) { sec.innerHTML = '<div class="empty"><div class="big">' + esc(state.error) + '</div><button class="pill-cta" id="retry">Retry</button></div>'; $('#retry').addEventListener('click', loadData); return; }
+
+    const users = state.users;
+    const bal = state.balances;
+    const noUser = !TG || !(TG.initDataUnsafe && TG.initDataUnsafe.user);
+
+    if (!users.length) {
+      sec.innerHTML = (noUser ? '<div class="banner">Opened outside Telegram — launch via the bot to track your own expenses.</div>' : '') +
+        '<div class="topbar">' + backOrSpacer('back-wallet') + '<div class="spacer44"></div><button class="icon-btn" id="nav-activity">' + icon('list') + '</button></div>' +
+        '<h1 class="headline">' + esc(state.chatTitle) + '</h1>' +
+        '<div class="subhead">No expenses yet</div>' +
+        '<div class="empty"><div class="big">Start splitting</div><div class="sub">Add your first expense to get going.</div></div>' +
+        '<button class="pill-cta add-pill" id="add-pill">+ Add expense</button>';
+      bindHomeNav(sec);
+      return;
+    }
+
+    const me = state.user.name;
+    const ordered = users.slice().sort((a, b) => Math.abs(bal[b] || 0) - Math.abs(bal[a] || 0));
+    const meIdx = ordered.indexOf(me);
+    const front = meIdx >= 0 ? ordered.splice(meIdx, 1)[0] : ordered.shift();
+    const backs = ordered.slice(0, 2);
+
+    const deckCards = [];
+    if (backs[1]) deckCards.push(deckCardHtml(backs[1], 'back2'));
+    if (backs[0]) deckCards.push(deckCardHtml(backs[0], 'back1'));
+    deckCards.push(deckCardHtml(front, 'front'));
+
+    const memberList = users.map(memberRowHtml).join('');
+
+    sec.innerHTML =
+      (noUser ? '<div class="banner">Opened outside Telegram — launch via the bot to track your own expenses.</div>' : '') +
+      '<div class="topbar">' + backOrSpacer('back-wallet') + '<div class="topbar-title">' + esc(state.chatTitle) + '</div><button class="pill small" id="nav-settle" style="background:var(--ink);color:#fff;">Settle</button></div>' +
+      '<h1 class="headline">' + esc(state.chatTitle) + '</h1>' +
+      '<div class="subhead">' + users.length + ' member' + (users.length === 1 ? '' : 's') + ' · tap a card to see activity</div>' +
+      '<div class="deck">' + deckCards.join('') + '</div>' +
+      '<div class="member-list">' + memberList + '</div>' +
+      '<div style="display:flex; gap:10px; margin-top:14px;"><button class="icon-btn ghost" id="nav-activity" style="flex:1; width:auto; border-radius:var(--pill); height:44px;">Activity</button></div>' +
+      '<button class="pill-cta add-pill" id="add-pill">+ Add expense</button>' +
+      '<button class="leave-group-btn" id="leave-group">Leave this group</button>';
+
+    bindHomeNav(sec);
+    $$('.member', sec).forEach((m) => m.addEventListener('click', () => {
+      const n = m.getAttribute('data-name');
+      state.expanded = state.expanded === n ? null : n;
+      renderBalances();
+    }));
+    const lg = $('#leave-group', sec);
+    if (lg) lg.addEventListener('click', leaveGroupAction);
+  }
+
+  async function leaveGroupAction() {
+    const confirmFn = (TG && TG.showConfirm)
+      ? (msg, cb) => TG.showConfirm(msg, cb)
+      : (msg, cb) => cb(window.confirm(msg));
+    confirmFn('Remove this group from your wallet?', (ok) => {
+      if (!ok) return;
+      setBusy(true);
+      fetch('/api/leave_group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: state.chatId, user_name: state.user.name }) })
+        .then(() => { haptic('success'); state.screen = 'wallet'; updateBackButton(); render(); loadGroups(); })
+        .catch((e) => { haptic('error'); alert(e.message); })
+        .finally(() => setBusy(false));
+    });
+  }
+
+  function bindHomeNav(sec) {
+    const addPill = $('#add-pill', sec);
+    if (addPill) addPill.addEventListener('click', () => go('add'));
+    const navA = $('#nav-activity', sec);
+    if (navA) navA.addEventListener('click', () => go('activity'));
+    const navS = $('#nav-settle', sec);
+    if (navS) navS.addEventListener('click', () => go('settle'));
+    const bw = $('#back-wallet', sec);
+    if (bw) bw.addEventListener('click', () => { state.screen = 'wallet'; updateBackButton(); render(); loadGroups(); });
+  }
+
+  function deckCardHtml(name, pos) {
+    const b = Number(state.balances[name] || 0);
+    const c = state.defaultCurrency || 'EUR';
+    const cls = b < -0.01 ? 'coral' : b > 0.01 ? 'lime' : 'sky';
+    const label = b < -0.01 ? 'owes' : b > 0.01 ? 'is owed' : 'settled up';
+    const cfg = {
+      back2: { top: 0,  rot: -3, z: 1, scale: 0.95 },
+      back1: { top: 18, rot: 3,  z: 2, scale: 0.97 },
+      front: { top: 42, rot: 0,  z: 3, scale: 1 }
+    }[pos];
+    const isFront = pos === 'front';
+    return '<div class="deck-card card-' + cls + '" data-name="' + esc(name) + '" style="top:' + cfg.top + 'px;transform:rotate(' + cfg.rot + 'deg) scale(' + cfg.scale + ');z-index:' + cfg.z + '">' +
+      '<div class="deck-top"><div class="deck-who">' + esc(name) + (name === state.user.name ? '<span class="you"> · you</span>' : '') + '</div>' + userAvatar(name, 34) + '</div>' +
+      (isFront ? '<div><div class="deck-amt">' + money(b, c) + '</div><div class="deck-label">' + label + '</div></div>' : '<div class="deck-amt-sm">' + money(b, c) + '</div>') +
+    '</div>';
+  }
+
+  function memberRowHtml(name) {
+    const b = Number(state.balances[name] || 0);
+    const c = state.defaultCurrency || 'EUR';
+    const cls = b < -0.01 ? 'coral' : b > 0.01 ? 'lime' : 'sky';
+    const label = b < -0.01 ? 'owes' : b > 0.01 ? 'is owed' : 'settled up';
+    let html = '<div class="member" data-name="' + esc(name) + '">' +
+      userAvatar(name, 42) +
+      '<div class="member-info"><div class="member-name">' + esc(name) + (name === state.user.name ? '<span class="you"> · you</span>' : '') + '</div><div class="member-label label-' + cls + '">' + label + '</div></div>' +
+      '<div class="member-amt amt-' + cls + '">' + signed(b, c) + '</div>' +
+    '</div>';
+    if (state.expanded === name) {
+      const perCur = state.balancesPerCurrency[name] || {};
+      const curKeys = Object.keys(perCur).filter(function (c) { return Math.abs(perCur[c]) > 0.01; });
+      if (curKeys.length > 0) {
+        const hasMultiple = curKeys.length > 1;
+        html += '<div class="member-detail">' +
+          curKeys.map(function (c) {
+            const amt = perCur[c];
+            const approx = (hasMultiple && c !== state.defaultCurrency)
+              ? ' <span class="muted">≈ ' + money(convertAmt(amt, c, state.defaultCurrency), state.defaultCurrency) + '</span>'
+              : '';
+            return '<div class="mini-row"><span>' + c + '</span><span class="amt-' + (amt >= 0 ? 'lime' : 'coral') + '">' + signed(amt, c) + approx + '</span></div>';
+          }).join('');
+        if (hasMultiple) {
+          html += '<div class="mini-row" style="font-size:11px;color:var(--muted);margin-top:4px;border-top:1px solid rgba(17,17,16,0.06);padding-top:6px;">All in default currency (' + state.defaultCurrency + ')</div>';
+        }
+        html += '</div>';
+      } else {
+        html += '<div class="member-detail"><div class="muted">No recent activity</div></div>';
+      }
+    }
+    return html;
+  }
+
+  function renderAdd() {
+    const sec = $('#screen-add');
+    let users = state.users.length ? state.users.slice() : [state.user.name];
+    if (!users.includes(state.user.name)) users.unshift(state.user.name);
+    if (!state.add.payer) state.add.payer = state.user.name;
+    if (state.add.selected.size === 0) state.add.selected = new Set(users);
+
+    const cur = state.add.currency || state.defaultCurrency || 'EUR';
+    const curSym = sym(cur);
+
+    const curOrder = (state.currencies && state.currencies.length) ? state.currencies.slice() : ['EUR'];
+    CURRENCIES.forEach(function (mc) {
+      if (curOrder.indexOf(mc.code) === -1) curOrder.push(mc.code);
+    });
+    const curMeta = {};
+    CURRENCIES.forEach(function (c) { curMeta[c.code] = c; });
+    const curPillsHTML = curOrder.map(function (code) {
+      var meta = curMeta[code] || { code: code, symbol: code, label: code };
+      return '<button class="cur-pill ' + (code === cur ? 'on' : '') + '" data-cur="' + code + '"><span class="cur-sym">' + meta.symbol + '</span><span class="cur-code">' + meta.label + '</span></button>';
+    }).join('');
+
+    sec.innerHTML =
+      '<div class="topbar">' + backOrSpacer('add-back') + '<div class="topbar-title">New expense</div><div class="spacer44"></div></div>' +
+      '<div class="amount-hero"><span class="currency" id="amt-currency">' + curSym + '</span><input id="amt-input" inputmode="decimal" placeholder="0" value="' + esc(state.add.amount) + '" autocomplete="off" /></div>' +
+      '<div class="currency-row" id="currency-row">' + curPillsHTML + '</div>' +
+      '<div class="field-label">Paid by</div>' +
+      '<div class="avatar-row">' + users.map((u) => '<button class="avatar-pick ' + (state.add.payer === u ? 'sel' : '') + '" data-payer="' + esc(u) + '">' + userAvatar(u, 48) + '<span class="avatar-name">' + esc(u.split(' ')[0]) + '</span></button>').join('') + '</div>' +
+      '<div class="field-label">Split between</div>' +
+      '<div class="pill-row" id="split-row">' + users.map((u) => '<button class="pill ' + (state.add.selected.has(u) ? 'on' : '') + '" data-split="' + esc(u) + '">' + esc(u.split(' ')[0]) + '</button>').join('') + '</div>' +
+      '<div id="custom-splits" style="margin-top:10px;"></div>' +
+      '<div class="split-hint">' + splitHintText() + '</div>' +
+      '<div class="field-label">Description</div>' +
+      '<input id="desc-input" class="text-input" placeholder="What was it for?" value="' + esc(state.add.desc) + '" />' +
+      '<button class="pill-cta" id="add-save">Save expense</button>';
+
+    $('#amt-input', sec).addEventListener('input', (e) => { state.add.amount = e.target.value; renderSplitInputs(sec); $('.split-hint', sec).textContent = splitHintText(); refreshAddValidity(); });
+    $('#desc-input', sec).addEventListener('input', (e) => { state.add.desc = e.target.value; });
+    $$('.cur-pill', sec).forEach((b) => b.addEventListener('click', () => {
+      state.add.currency = b.getAttribute('data-cur');
+      $$('.cur-pill', sec).forEach((x) => x.classList.toggle('on', x.getAttribute('data-cur') === state.add.currency));
+      $('#amt-currency', sec).textContent = sym(state.add.currency);
+      renderSplitInputs(sec);
+      $('.split-hint', sec).textContent = splitHintText();
+      haptic('impact', 'light');
+    }));
+    $$('.avatar-pick', sec).forEach((b) => b.addEventListener('click', () => {
+      state.add.payer = b.getAttribute('data-payer');
+      $$('.avatar-pick', sec).forEach((x) => x.classList.toggle('sel', x.getAttribute('data-payer') === state.add.payer));
+      haptic('impact', 'light');
+    }));
+    $$('.pill[data-split]', sec).forEach((b) => b.addEventListener('click', () => {
+      const u = b.getAttribute('data-split');
+      if (state.add.selected.has(u)) { state.add.selected.delete(u); b.classList.remove('on'); }
+      else { state.add.selected.add(u); b.classList.add('on'); }
+      state.add.splitAmounts = {};
+      renderSplitInputs(sec);
+      $('.split-hint', sec).textContent = splitHintText();
+      haptic('impact', 'light');
+      refreshAddValidity();
+    }));
+    const addBack = $('#add-back', sec);
+    if (addBack) addBack.addEventListener('click', () => go('balances'));
+    $('#add-save', sec).addEventListener('click', saveExpenseAction);
+    renderSplitInputs(sec);
+    refreshAddValidity();
+  }
+
+  function renderSplitInputs(sec) {
+    const container = $('#custom-splits', sec);
+    if (!container) return;
+    const selected = Array.from(state.add.selected);
+    const total = parseFloat(state.add.amount) || 0;
+    const equalRaw = selected.length > 0 ? total / selected.length : 0;
+    const equalFmt = fmtNum(equalRaw);
+    if (!state.add.splitAmounts) state.add.splitAmounts = {};
+    container.innerHTML = selected.map(function (u) {
+      var raw = state.add.splitAmounts[u];
+      var val = raw !== undefined ? raw : equalFmt;
+      return '<div class="split-amt-row"><span class="sn">' + esc(u.split(' ')[0]) + '</span><input class="split-amt-input" data-user="' + esc(u) + '" inputmode="decimal" placeholder="' + equalFmt + '" value="' + val + '" onfocus="this.select()" /></div>';
+    }).join('');
+    $$('.split-amt-input', sec).forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var editedUser = inp.getAttribute('data-user');
+        state.add.splitAmounts[editedUser] = inp.value;
+        $('.split-hint', sec).textContent = splitHintText();
+      });
+      inp.addEventListener('blur', function () {
+        var editedUser = inp.getAttribute('data-user');
+        var editedVal = parseFloat(inp.value);
+        if (!isNaN(editedVal) && editedVal > 0 && selected.length === 2 && total > 0) {
+          var other = selected[0] === editedUser ? selected[1] : selected[0];
+          state.add.splitAmounts[other] = fmtNum(Math.max(0, total - editedVal));
+          var otherInp = container.querySelector('.split-amt-input[data-user="' + other + '"]');
+          if (otherInp) { otherInp.value = state.add.splitAmounts[other]; otherInp.placeholder = equalFmt; }
+        }
+        $('.split-hint', sec).textContent = splitHintText();
+        refreshAddValidity();
+      });
+    });
+  }
+
+  function splitHintText() {
+    const n = state.add.selected.size;
+    const total = parseFloat(state.add.amount) || 0;
+    if (n === 0 || !(total > 0)) return 'Select people and enter an amount';
+    const equal = total / n;
+    var remaining = total;
+    Array.from(state.add.selected).forEach(function (u) {
+      remaining -= parseFloat(state.add.splitAmounts[u]) || 0;
+    });
+    remaining = Math.round(remaining * 100) / 100;
+    if (Math.abs(remaining) < 0.01) return n + ' people · custom split';
+    if (remaining > 0) return n + ' people · ' + money(remaining, state.add.currency) + ' unallocated';
+    return n + ' people · ' + money(-remaining, state.add.currency) + ' over';
+  }
+
+  function refreshAddValidity() {
+    const amt = parseFloat(state.add.amount);
+    var valid = amt > 0 && state.add.payer && state.add.selected.size > 0;
+    if (valid) {
+      var totalSplit = 0;
+      Array.from(state.add.selected).forEach(function (u) {
+        totalSplit += parseFloat(state.add.splitAmounts[u]) || 0;
+      });
+      if (Math.abs(totalSplit - amt) > 0.01) valid = false;
+    }
+    const btn = $('#add-save');
+    if (btn) btn.classList.toggle('disabled', !valid);
+  }
+
+  async function saveExpenseAction() {
+    const amt = parseFloat(state.add.amount);
+    if (!(amt > 0) || !state.add.payer || state.add.selected.size === 0) return;
+    const selected = Array.from(state.add.selected);
+    const splits = {};
+    selected.forEach(function (u) {
+      var v = parseFloat(state.add.splitAmounts[u]);
+      splits[u] = (!isNaN(v) && v > 0) ? v : Math.round(amt / selected.length * 100) / 100;
+    });
+    setBusy(true);
+    try {
+      await apiAdd({ chat_id: state.chatId, user: state.add.payer, amount: amt, desc: state.add.desc || 'Expense', splits: splits, currency: state.add.currency || state.defaultCurrency || 'EUR' });
+      haptic('success');
+      state.add = { amount: '', payer: null, selected: new Set(), desc: '', currency: state.defaultCurrency || 'EUR', splitAmounts: {} };
+      await loadData();
+      go('balances');
+    } catch (e) {
+      haptic('error');
+      alert(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function renderSettle() {
+    const sec = $('#screen-settle');
+    if (state.loading) { sec.innerHTML = ''; return; }
+
+    const defCur = state.defaultCurrency || 'EUR';
+    const spend = state.expenseShares || {};
+    var hasMultiSpend = Object.keys(state.currencyCounts || {}).length > 1;
+    const users = state.users.length ? state.users : Object.keys(spend);
+    const totalSpend = Object.keys(spend).reduce(function (a, k) { return a + spend[k]; }, 0);
+    const maxSpend = Math.max(1, ...Object.keys(spend).map(function (k) { return spend[k]; }));
+
+    const bars = users.map(function (u) {
+      const v = spend[u] || 0;
+      return '<div class="bar-row"><div class="bar-label">' + esc((u || '?').split(' ')[0]) + '</div><div class="bar-track"><div class="bar-fill" style="width:' + Math.round(v / maxSpend * 100) + '%"></div></div><div class="bar-val">' + money(v, defCur) + '</div></div>';
+    }).join('');
+
+    const transfersByCur = state.transfersByCurrency || [];
+    const hasMultipleCurrencies = (new Set(transfersByCur.map(function (t) { return t.currency; }))).size > 1;
+    let transferList;
+    if (transfersByCur.length) {
+      const sections = [];
+      var seenCurrencies = [];
+      transfersByCur.forEach(function (t, i) {
+        var c = t.currency || 'EUR';
+        if (seenCurrencies.indexOf(c) === -1) {
+          seenCurrencies.push(c);
+          sections.push('<div class="field-label">' + c + '</div>');
+        }
+        sections.push('<div class="settle-row"><div class="settle-who">' + userAvatar(t.from, 34) + '<span class="arrow">&rarr;</span>' + userAvatar(t.to, 34) + '</div><div class="settle-amt">' + money(t.amount, c) + '</div><button class="pill small" data-settle="' + i + '">Mark settled</button></div>');
+      });
+      transferList = sections.join('');
+    } else {
+      transferList = '<div class="empty" style="padding:30px 12px"><div class="big">All settled up</div><div class="sub">No outstanding balances.</div></div>';
+    }
+
+    const cluster = avatarCluster(users);
+
+    sec.innerHTML =
+      '<div class="topbar">' + backOrSpacer('settle-back') + '<div class="spacer44"></div><div class="spacer44"></div></div>' +
+      '<h1 class="headline">Settle up</h1>' +
+      '<div class="subhead">Recent spend and suggested payments</div>' +
+      '<div class="stats-card"><div class="stats-label">Recent spend' + (hasMultiSpend ? ' (converted to ' + defCur + ')' : '') + '</div><div class="stats-total">' + money(totalSpend, defCur) + '</div><div class="bars">' + bars + '</div></div>' +
+      '<div class="field-label">Suggested payments</div>' +
+      '<div class="settle-list">' + transferList + '</div>' +
+      '<div class="cluster-wrap">' + cluster + '</div>';
+
+    const settleBack = $('#settle-back', sec);
+    if (settleBack) settleBack.addEventListener('click', () => go('balances'));
+    $$('[data-settle]', sec).forEach((b) => b.addEventListener('click', () => settleAction(parseInt(b.getAttribute('data-settle'), 10))));
+  }
+
+  function avatarCluster(users) {
+    const shown = users.slice(0, 5);
+    const extra = users.length - shown.length;
+    let html = shown.map((u) => '<div class="cluster-avatar">' + userAvatar(u, 36) + '</div>').join('');
+    if (extra > 0) html += '<div class="cluster-avatar extra">+' + extra + '</div>';
+    return html;
+  }
+
+  async function settleAction(i) {
+    const t = state.transfersByCurrency[i];
+    if (!t) return;
+    setBusy(true);
+    try {
+      await apiSettle(t.from, t.to, t.amount, t.currency);
+      haptic('success');
+      await loadData();
+    } catch (e) {
+      haptic('error');
+      alert(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function renderActivity() {
+    const sec = $('#screen-activity');
+    if (state.loading) { sec.innerHTML = ''; return; }
+
+    const items = []
+      .concat(state.expenses.map((e) => ({ kind: 'expense', id: e.id, tx_id: e.tx_id, title: e.desc || 'Expense', sub: 'Paid by ' + e.user, amount: e.amount, currency: e.currency || 'USD' })))
+      .concat(state.settlements.map((s) => ({ kind: 'settle', id: s.id, tx_id: s.tx_id, title: s.from + ' settled with ' + s.to, sub: 'Settlement', amount: s.amount, currency: s.currency || 'EUR' })))
+      .sort((a, b) => b.id - a.id);
+
+    const list = items.length
+      ? items.map((it) => '<div class="act-row"><div class="act-kind ' + it.kind + '">' + icon(it.kind === 'expense' ? 'plus' : 'check') + '</div><div class="act-info"><div class="act-title">' + esc(it.title) + '</div><div class="act-sub">' + esc(it.sub) + '</div></div><div class="act-amt">' + money(it.amount, it.currency) + '</div><button class="icon-btn small del" data-del="' + esc(it.tx_id) + '">' + icon('trash') + '</button></div>').join('')
+      : '<div class="empty"><div class="big">Nothing here yet</div><div class="sub">Expenses and settlements will appear here.</div></div>';
+
+    sec.innerHTML =
+      '<div class="topbar">' + backOrSpacer('act-back') + '<div class="topbar-title">Activity</div><div class="spacer44"></div></div>' +
+      '<h1 class="headline">Activity</h1>' +
+      '<div class="subhead">' + items.length + ' recent transaction' + (items.length === 1 ? '' : 's') + '</div>' +
+      '<div class="act-list">' + list + '</div>';
+
+    const actBack = $('#act-back', sec);
+    if (actBack) actBack.addEventListener('click', () => go('balances'));
+    $$('.del', sec).forEach((b) => b.addEventListener('click', () => deleteAction(b.getAttribute('data-del'))));
+  }
+
+  function deleteAction(tx_id) {
+    const confirmFn = (TG && TG.showConfirm)
+      ? (msg, cb) => TG.showConfirm(msg, cb)
+      : (msg, cb) => cb(window.confirm(msg));
+    confirmFn('Delete this transaction?', (ok) => {
+      if (!ok) return;
+      setBusy(true);
+      apiDelete(tx_id).then(() => {
+        haptic('success');
+        return loadData();
+      }).catch((e) => {
+        haptic('error');
+        alert(e.message);
+      }).finally(() => setBusy(false));
+    });
+  }
+
+  function showError(msg) {
+    var existing = document.querySelector('.error-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.className = 'error-toast';
+    toast.innerHTML = '<span class="msg">' + esc(msg) + '</span><button class="dismiss" onclick="this.parentNode.remove()">&times;</button>';
+    document.body.appendChild(toast);
+    setTimeout(function () { if (toast.parentNode) toast.remove(); }, 8000);
+  }
+
+  window.addEventListener('error', function (ev) {
+    var msg = (ev && ev.message) ? ev.message : 'Unknown error';
+    showError(msg);
+    console.error(ev && ev.error);
+  });
+
+  window.addEventListener('unhandledrejection', function (ev) {
+    var msg = (ev && ev.reason && ev.reason.message) ? ev.reason.message : 'Unhandled promise rejection';
+    showError(msg);
+    console.error(ev && ev.reason);
+  });
+
+  recoverContext();
+  if (state.initialGroup) {
+    state.screen = 'balances';
+  } else {
+    state.screen = 'wallet';
+  }
+  render();
+  initTelegram();
+  updateBackButton();
+  if (state.initialGroup) loadData();
+  else loadGroups();
+})();
+</script>
+</body>
+</html>

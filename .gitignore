@@ -1,0 +1,26 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Database (generated at runtime)
+splitwise.db
+
+# Cached group photos
+photos/
+
+# Environment variables (contains BOT_TOKEN)
+.env
+
+# macOS
+.DS_Store
+
+# Session logs
+session-*.md
+
+# IDE
+.vscode/
+.idea/
