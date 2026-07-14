@@ -15,41 +15,31 @@ Track shared expenses in Telegram groups with a Wallet-style interface. Add expe
 ## Architecture
 
 ```
-bot.py   — Aiogram bot, handles /start and /split commands, sends deep links
-app.py   — FastAPI server, serves the Mini App and REST API
+bot.py     — Aiogram bot, handles /start and /split commands, sends deep links
+app.py     — FastAPI server, serves the Mini App + REST API (port 8000)
 index.html — Single-page frontend (Telegram WebApp SDK)
-config.py — Environment config (BOT_TOKEN)
+config.py  — Environment config, loads BOT_TOKEN from .env
 ```
 
-## Setup
+## Local Setup
 
 ```bash
-# Clone
 git clone https://github.com/YOUR_USER/nova-bot
 cd nova-bot
-
-# Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Set your bot token
 cp .env.example .env
-# Edit .env and add your BOT_TOKEN from @BotFather
-
-# Run both servers
+# edit .env — add your BOT_TOKEN from @BotFather
 python app.py &    # FastAPI on port 8000
 python bot.py      # Telegram bot (long polling)
 ```
 
-Expose `app.py` (port 8000) via ngrok or a public server, then set the Mini App URL in @BotFather to `https://your-domain.com`.
 
 ## Deep links
 
-- **Group chat**  — `/split` opens the Mini App with `startapp=g<chat_id>`, showing that group's expenses
-- **Private chat**  — `/start` opens the wallet with all your groups
+- **Group chat** — `/split` opens the Mini App with `startapp=g<chat_id>`, showing that group's expenses
+- **Private chat** — `/start` opens the wallet with all your groups
 - **Add to group** — the "Add Nova to a group" button uses `startgroup=true`
 
 ## API
