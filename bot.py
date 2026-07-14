@@ -19,7 +19,7 @@ os.makedirs(PHOTOS_DIR, exist_ok=True)
 
 
 def get_db():
-    conn = sqlite3.connect("splitwise.db", check_same_thread=False)
+    conn = sqlite3.connect("nova.db", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -68,7 +68,7 @@ async def send_app_button(message: types.Message):
         text = "Tap below to open your personal expense tracker!"
 
     markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Open Splitwise Mini", url=dynamic_link)]
+        [InlineKeyboardButton(text="Open Nova", url=dynamic_link)]
     ])
 
     await message.answer(text, reply_markup=markup)
