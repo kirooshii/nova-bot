@@ -20,7 +20,7 @@ os.makedirs(PHOTOS_DIR, exist_ok=True)
 
 
 def get_db():
-    conn = sqlite3.connect("splitwise.db", check_same_thread=False)
+    conn = sqlite3.connect("nova.db", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 

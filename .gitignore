@@ -7,7 +7,7 @@ __pycache__/
 *.pyo
 
 # Database (generated at runtime)
-splitwise.db
+nova.db
 
 # Cached group photos
 photos/

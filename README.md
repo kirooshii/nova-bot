@@ -1,4 +1,4 @@
-# Nova Bot — Telegram Splitwise Mini App
+# Nova Bot — Telegram Expense-Splitting Mini App
 
 Track shared expenses in Telegram groups with a Wallet-style interface. Add expenses, settle debts, and see who owes whom — all inside the Telegram Mini App.
 
