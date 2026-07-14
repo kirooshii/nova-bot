@@ -61,7 +61,7 @@ async def send_app_button(message: types.Message):
     if message.chat.type in ["group", "supergroup"]:
         clean_chat_id = str(message.chat.id).replace("-", "g")
         dynamic_link = f"https://t.me/rosecap_nova_bot/split?startapp={clean_chat_id}"
-        text = "Tap below to view or add expenses for this group! 🍕"
+        text = "Tap below to view or add expenses for this group☺️"
         asyncio.create_task(save_group_photo(message.chat.id, message.chat.title or "Group"))
     else:
         dynamic_link = DIRECT_APP_LINK
