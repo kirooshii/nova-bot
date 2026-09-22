@@ -8,12 +8,16 @@ __pycache__/
 
 # Database (generated at runtime)
 nova.db
+nova.test.db
+*.test.db
 
 # Cached group photos
 photos/
+photos_test/
 
 # Environment variables (contains BOT_TOKEN)
 .env
+.env.test
 
 # macOS
 .DS_Store

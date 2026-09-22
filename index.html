@@ -590,11 +590,17 @@
 
   function bindAddToGroup(sec) {
     const btn = $('#add-to-group', sec);
-    if (btn) btn.addEventListener('click', () => {
+    if (btn) btn.addEventListener('click', async () => {
+      let botUsername = 'rosecap_nova_bot';
+      try {
+        const r = await fetch('/api/config');
+        if (r.ok) botUsername = (await r.json()).bot_username || botUsername;
+      } catch (e) { /* fallback to prod name */ }
+      const url = 'https://t.me/' + botUsername + '?startgroup=true';
       if (TG && TG.openTelegramLink) {
-        TG.openTelegramLink('https://t.me/rosecap_nova_bot?startgroup=true');
+        TG.openTelegramLink(url);
       } else {
-        window.open('https://t.me/rosecap_nova_bot?startgroup=true', '_blank');
+        window.open(url, '_blank');
       }
     });
   }
@@ -636,7 +642,7 @@
       (noUser ? '<div class="banner">Opened outside Telegram — launch via the bot to track your own expenses.</div>' : '') +
       '<div class="topbar">' + backOrSpacer('back-wallet') + '<div class="topbar-title">' + esc(state.chatTitle) + '</div><button class="pill small" id="nav-settle" style="background:var(--ink);color:#fff;">Settle</button></div>' +
       '<h1 class="headline">' + esc(state.chatTitle) + '</h1>' +
-      '<div class="subhead">' + users.length + ' member' + (users.length === 1 ? '' : 's') + ' · tap a card to see activity</div>' +
+      '<div class="subhead">' + users.length + ' member' + (users.length === 1 ? '' : 's') + '</div>' +
       '<div class="deck">' + deckCards.join('') + '</div>' +
       '<div class="member-list">' + memberList + '</div>' +
       '<div style="display:flex; gap:10px; margin-top:14px;"><button class="icon-btn ghost" id="nav-activity" style="flex:1; width:auto; border-radius:var(--pill); height:44px;">Activity</button></div>' +

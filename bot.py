@@ -4,22 +4,24 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import asyncio
 import os
 import sqlite3
-from config import BOT_TOKEN
+from config import BOT_TOKEN, BOT_USERNAME, DB_PATH, PHOTOS_DIR as PHOTOS_DIR_NAME
 
-# Fixed bug 5: "group" collided with the g<chat_id> encoding scheme used for
-# real group deep-links (the frontend treated anything starting with "g" as
-# an encoded group chat id, so "group" itself parsed into a bogus id).
-DIRECT_APP_LINK = "https://t.me/rosecap_nova_bot/split?startapp=personal"
+# Deep link to the Mini App. BOT_USERNAME comes from env so the test bot
+# points at itself instead of the prod bot.
+# NB: "personal" must not be renamed to "group" — "group" collides with the
+# g<chat_id> encoding scheme used for real group deep-links (the frontend
+# treats anything starting with "g" as an encoded group chat id).
+DIRECT_APP_LINK = f"https://t.me/{BOT_USERNAME}/split?startapp=personal"
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-PHOTOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "photos")
+PHOTOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), PHOTOS_DIR_NAME)
 os.makedirs(PHOTOS_DIR, exist_ok=True)
 
 
 def get_db():
-    conn = sqlite3.connect("nova.db", check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -58,9 +60,10 @@ async def save_group_photo(chat_id: int, title: str):
 
 @dp.message(Command("start", "split"))
 async def send_app_button(message: types.Message):
+    print(f"[bot] cmd={message.text!r} chat_type={message.chat.type} chat_id={message.chat.id}", flush=True)
     if message.chat.type in ["group", "supergroup"]:
         clean_chat_id = str(message.chat.id).replace("-", "g")
-        dynamic_link = f"https://t.me/rosecap_nova_bot/split?startapp={clean_chat_id}"
+        dynamic_link = f"https://t.me/{BOT_USERNAME}/split?startapp={clean_chat_id}"
         text = "Tap below to view or add expenses for this group☺️"
         asyncio.create_task(save_group_photo(message.chat.id, message.chat.title or "Group"))
     else:

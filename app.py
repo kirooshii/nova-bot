@@ -7,7 +7,7 @@ import uuid
 import json
 import os
 import urllib.request
-from config import BOT_TOKEN
+from config import BOT_TOKEN, BOT_USERNAME, DB_PATH, PORT, PHOTOS_DIR as PHOTOS_DIR_NAME
 
 app = FastAPI()
 
@@ -15,12 +15,12 @@ app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
-PHOTOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "photos")
+PHOTOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), PHOTOS_DIR_NAME)
 os.makedirs(PHOTOS_DIR, exist_ok=True)
 
 
 def get_db():
-    conn = sqlite3.connect("nova.db", check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -219,6 +219,11 @@ def ensure_group_title_and_photo(chat_id, conn):
     else:
         # Group row exists but getChat failed — bot was likely kicked or group deleted
         return r["title"]
+
+
+@app.get("/api/config")
+def get_config():
+    return {"bot_username": BOT_USERNAME}
 
 
 @app.get("/")
@@ -695,4 +700,4 @@ def get_balances(
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

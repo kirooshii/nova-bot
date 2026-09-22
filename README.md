@@ -46,6 +46,7 @@ python bot.py      # Telegram bot (long polling)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/api/config` | GET | Bot username for deep links (env-driven) |
 | `/api/balances` | GET | Per-currency balances, transfers, group info |
 | `/api/groups` | GET | List of groups the user belongs to |
 | `/api/add` | POST | Add a new expense |
