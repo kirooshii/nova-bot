@@ -5,7 +5,7 @@ Track shared expenses in Telegram groups with a Wallet-style interface. Add expe
 ## Features
 
 - **Group expense tracking**  — add expenses with custom splits (equal or per-person amounts)
-- **Multi-currency**  — USD, EUR, GBP, GEL, RUB with approximate conversions
+- **Multi-currency**  — USD, EUR, GBP, GEL, RUB
 - **Wallet view** — swipe through all your groups, see your net balance at a glance
 - **Balances deck** — card-style overview of who owes whom
 - **Settle up** — suggested payments to zero out debts
