@@ -362,6 +362,7 @@
       deleteConfirm: "Delete this transaction?", leaveConfirm: "Remove this group from your wallet?",
       couldNotLoad: "Could not load details", loading: "Loading…", you: "you",
       memberW: ["member", "members"], peopleW: ["person", "people"], txW: ["transaction", "transactions"],
+      groupW: ["group", "groups"], tapToOpen: "tap to open", total: "total",
     },
     ru: {
       yourGroups: "Ваши группы", yourWallet: "Ваш кошелёк",
@@ -389,6 +390,7 @@
       deleteConfirm: "Удалить эту транзакцию?", leaveConfirm: "Удалить эту группу из вашего кошелька?",
       couldNotLoad: "Не удалось загрузить детали", loading: "Загрузка…", you: "вы",
       memberW: ["участник", "участника", "участников"], peopleW: ["человек", "человека", "человек"], txW: ["транзакция", "транзакции", "транзакций"],
+      groupW: ["группа", "группы", "групп"], tapToOpen: "нажмите, чтобы открыть", total: "всего",
     },
   };
 
@@ -678,7 +680,7 @@
       const pfp = '<div class="wc-pfp"><img src="' + groupPhotoImg(g.chat_id, 80) + '" alt="" onerror="this.parentNode.innerHTML=\'' + esc(initials(g.title)).replace(/'/g, "\\'") + '\'"/></div>';
       const mc = g.member_count || 0;
       return '<div class="wallet-card ' + accent + '" data-chat="' + esc(g.chat_id) + '" data-title="' + esc(g.title) + '">' +
-        '<div class="wc-top"><div><div class="wc-title">' + esc(g.title) + '</div><div class="wc-sub">' + countWord(mc, 'memberW') + ' · ' + money(g.total_spend || 0, gCur) + ' total</div></div>' + pfp + '</div>' +
+        '<div class="wc-top"><div><div class="wc-title">' + esc(g.title) + '</div><div class="wc-sub">' + countWord(mc, 'memberW') + ' · ' + money(g.total_spend || 0, gCur) + ' ' + t('total') + '</div></div>' + pfp + '</div>' +
         '<div class="wc-net">' + netLabel + '</div>' +
       '</div>';
     }).join('');
@@ -687,7 +689,7 @@
       (noUser ? '<div class="banner">' + t('openedOutside') + '</div>' : '') +
       '<div class="topbar"><div class="spacer44"></div><div class="topbar-title">' + t('yourGroups') + '</div><div class="spacer44"></div></div>' +
       '<h1 class="headline">' + t('yourWallet') + '</h1>' +
-      '<div class="subhead">' + groups.length + ' group' + (groups.length === 1 ? '' : 's') + ' · tap to open</div>' +
+      '<div class="subhead">' + countWord(groups.length, 'groupW') + ' · ' + t('tapToOpen') + '</div>' +
       langSwitcher +
       '<div class="wallet-stack">' + cards + '</div>' +
       '<button class="pill-cta add-group-btn" id="add-to-group">' + icon('plus') + ' ' + t('addNovaToGroup') + '</button>';
