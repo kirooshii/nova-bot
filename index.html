@@ -158,7 +158,7 @@
   .amt-coral { color: var(--coral-d); } .amt-lime { color: var(--lime-d); } .amt-sky { color: var(--sky-d); }
   .member-detail { background: var(--surface); border-radius: 14px; padding: 10px 14px; margin: -4px 0 10px; border: 1px solid rgba(17,17,16,0.05); }
   .mini-row { display:flex; justify-content:space-between; gap:10px; padding: 7px 0; font-size:13px; }
-  .mini-row span:first-child { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: var(--muted); }
+  .mini-row span:first-child { min-width: 0; flex: 1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: var(--muted); }
 
   .amount-hero { display:flex; align-items:flex-end; justify-content:center; gap:6px; margin: 24px 0 8px; }
   .amount-hero .currency { font-size: 40px; font-weight:700; color: var(--ink); opacity:0.35; padding-bottom: 10px; }
@@ -220,7 +220,8 @@
 
   .act-list { display:flex; flex-direction:column; gap: 8px; }
   .act-row { background: var(--surface); border-radius: 18px; padding: 12px 14px; border: 1px solid rgba(17,17,16,0.05); cursor: pointer; }
-  .act-row-top { display:flex; align-items:center; gap: 12px; }
+  .act-row-top { display:flex; align-items:center; gap: 12px; padding-bottom: 2px; }
+  .act-row .member-detail { margin: 10px -2px 0; }
   .act-kind { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .act-kind.expense { background: var(--sky); color: var(--ink); }
   .act-kind.settle { background: var(--lime); color: var(--ink); }
