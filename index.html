@@ -331,8 +331,83 @@
     txDetailCache: {},
     initialGroup: null,
     chatTitleKnown: false,
+    lang: 'en',
     add: { amount: '', payer: null, selected: new Set(), desc: '', currency: '', splitAmounts: {} }
   };
+
+  const I18N = {
+    en: {
+      yourGroups: "Your groups", yourWallet: "Your wallet",
+      walletSub: "All your split groups in one place",
+      noGroupsBig: "No groups yet", noGroupsSub: "Add Nova to a group chat to start tracking expenses.",
+      addNovaToGroup: "Add Nova to a group",
+      openedOutside: "Opened outside Telegram — launch via the bot to track your own expenses.",
+      settledUp: "settled up", youOwe: "you owe", youreOwed: "you're owed",
+      noExpensesSub: "No expenses yet", startSplittingBig: "Start splitting",
+      startSplittingSub: "Add your first expense to get going.", addExpense: "+ Add expense",
+      activity: "Activity", settle: "Settle", leaveGroup: "Leave this group",
+      owes: "owes", isOwed: "is owed", noRecentActivity: "No recent activity",
+      allInDefault: "All in default currency", newExpense: "New expense",
+      paidBy: "Paid by", splitBetween: "Split between",
+      selectPeople: "Select people and enter an amount", equalSplit: "equal split",
+      customSplit: "custom split", unallocated: "unallocated", over: "over",
+      description: "Description", descPlaceholder: "What was it for?", saveExpense: "Save expense",
+      settleUp: "Settle up", settleSub: "Recent spend and suggested payments",
+      recentSpend: "Recent spend", convertedTo: "converted to",
+      suggestedPayments: "Suggested payments", markSettled: "Mark settled",
+      allSettledUp: "All settled up", noOutstanding: "No outstanding balances.",
+      imbalanceBanner: "Balances don't add up — contact support",
+      nothingHereBig: "Nothing here yet", nothingHereSub: "Expenses and settlements will appear here.",
+      settledWith: "settled with", settlement: "Settlement",
+      deleteConfirm: "Delete this transaction?", leaveConfirm: "Remove this group from your wallet?",
+      couldNotLoad: "Could not load details", loading: "Loading…", you: "you",
+      memberW: ["member", "members"], peopleW: ["person", "people"], txW: ["transaction", "transactions"],
+    },
+    ru: {
+      yourGroups: "Ваши группы", yourWallet: "Ваш кошелёк",
+      walletSub: "Все ваши группы расходов в одном месте",
+      noGroupsBig: "Пока нет групп", noGroupsSub: "Добавьте Nova в групповой чат, чтобы начать учёт расходов.",
+      addNovaToGroup: "Добавить Nova в группу",
+      openedOutside: "Открыто вне Telegram — запустите через бота, чтобы вести учёт своих расходов.",
+      settledUp: "баланс сведён", youOwe: "вы должны", youreOwed: "вам должны",
+      noExpensesSub: "Пока нет расходов", startSplittingBig: "Начните делить расходы",
+      startSplittingSub: "Добавьте первый расход, чтобы начать.", addExpense: "+ Добавить расход",
+      activity: "Активность", settle: "Рассчитаться", leaveGroup: "Покинуть эту группу",
+      owes: "должен(на)", isOwed: "должны", noRecentActivity: "Нет недавней активности",
+      allInDefault: "Всё в базовой валюте", newExpense: "Новый расход",
+      paidBy: "Оплатил(а)", splitBetween: "Разделить между",
+      selectPeople: "Выберите людей и введите сумму", equalSplit: "поровну",
+      customSplit: "свой вариант", unallocated: "не распределено", over: "превышение",
+      description: "Описание", descPlaceholder: "На что потрачено?", saveExpense: "Сохранить расход",
+      settleUp: "Рассчитаться", settleSub: "Недавние траты и предложенные платежи",
+      recentSpend: "Недавние траты", convertedTo: "конвертировано в",
+      suggestedPayments: "Предложенные платежи", markSettled: "Отметить оплаченным",
+      allSettledUp: "Всё оплачено", noOutstanding: "Нет непогашенных балансов.",
+      imbalanceBanner: "Балансы не сходятся — обратитесь в поддержку",
+      nothingHereBig: "Пока ничего нет", nothingHereSub: "Здесь будут отображаться расходы и расчёты.",
+      settledWith: "рассчитался(лась) с", settlement: "Расчёт",
+      deleteConfirm: "Удалить эту транзакцию?", leaveConfirm: "Удалить эту группу из вашего кошелька?",
+      couldNotLoad: "Не удалось загрузить детали", loading: "Загрузка…", you: "вы",
+      memberW: ["участник", "участника", "участников"], peopleW: ["человек", "человека", "человек"], txW: ["транзакция", "транзакции", "транзакций"],
+    },
+  };
+
+  function t(key) { return (I18N[state.lang] && I18N[state.lang][key]) || I18N.en[key] || key; }
+
+  function ruForm(n, forms) {
+    n = Math.abs(n) % 100;
+    var n1 = n % 10;
+    if (n > 10 && n < 20) return forms[2];
+    if (n1 === 1) return forms[0];
+    if (n1 > 1 && n1 < 5) return forms[1];
+    return forms[2];
+  }
+
+  function countWord(n, key) {
+    var forms = t(key);
+    if (state.lang === 'ru') return n + ' ' + ruForm(n, forms);
+    return n + ' ' + forms[n === 1 ? 0 : 1];
+  }
 
   const $  = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
@@ -422,6 +497,18 @@
       state.chatTitle = state.chatId === 'default' ? 'Your expenses' : 'Loading…';
       state.chatTitleKnown = false;
     }
+  }
+
+  function initLang() {
+    var saved = localStorage.getItem('nova_lang');
+    if (saved === 'en' || saved === 'ru') { state.lang = saved; return; }
+    var tgLang = (TG && TG.initDataUnsafe && TG.initDataUnsafe.user && TG.initDataUnsafe.user.language_code) || '';
+    state.lang = tgLang.toLowerCase().startsWith('ru') ? 'ru' : 'en';
+  }
+  function setLang(l) {
+    state.lang = l;
+    try { localStorage.setItem('nova_lang', l); } catch (e) {}
+    render();
   }
 
   async function apiBalances() {
@@ -562,14 +649,21 @@
     const noUser = !TG || !(TG.initDataUnsafe && TG.initDataUnsafe.user);
     const groups = state.groups;
 
+    var langSwitcher = '<div class="currency-row" style="margin-bottom:16px;">' +
+      '<button class="cur-pill ' + (state.lang === 'en' ? 'on' : '') + '" data-lang="en">EN</button>' +
+      '<button class="cur-pill ' + (state.lang === 'ru' ? 'on' : '') + '" data-lang="ru">RU</button>' +
+      '</div>';
+
     if (!groups.length) {
-      sec.innerHTML = (noUser ? '<div class="banner">Opened outside Telegram — launch via the bot to track your own expenses.</div>' : '') +
-        '<div class="topbar"><div class="spacer44"></div><div class="topbar-title">Your groups</div><div class="spacer44"></div></div>' +
-        '<h1 class="headline">Your wallet</h1>' +
-        '<div class="subhead">All your split groups in one place</div>' +
-        '<div class="empty"><div class="big">No groups yet</div><div class="sub">Add Nova to a group chat to start tracking expenses.</div></div>' +
-        '<button class="pill-cta add-group-btn" id="add-to-group">' + icon('plus') + ' Add Nova to a group</button>';
+      sec.innerHTML = (noUser ? '<div class="banner">' + t('openedOutside') + '</div>' : '') +
+        '<div class="topbar"><div class="spacer44"></div><div class="topbar-title">' + t('yourGroups') + '</div><div class="spacer44"></div></div>' +
+        '<h1 class="headline">' + t('yourWallet') + '</h1>' +
+        '<div class="subhead">' + t('walletSub') + '</div>' +
+        langSwitcher +
+        '<div class="empty"><div class="big">' + t('noGroupsBig') + '</div><div class="sub">' + t('noGroupsSub') + '</div></div>' +
+        '<button class="pill-cta add-group-btn" id="add-to-group">' + icon('plus') + ' ' + t('addNovaToGroup') + '</button>';
       bindAddToGroup(sec);
+      $$('[data-lang]', sec).forEach((b) => b.addEventListener('click', () => setLang(b.getAttribute('data-lang'))));
       return;
     }
 
@@ -578,27 +672,29 @@
       const net = Number(g.net || 0);
       const gCur = g.default_currency || 'EUR';
       let netLabel;
-      if (Math.abs(net) < 0.01) netLabel = 'settled up';
-      else if (net < 0) netLabel = 'you owe ' + money(net, gCur);
-      else netLabel = "you're owed " + money(net, gCur);
+      if (Math.abs(net) < 0.01) netLabel = t('settledUp');
+      else if (net < 0) netLabel = t('youOwe') + ' ' + money(net, gCur);
+      else netLabel = t('youreOwed') + ' ' + money(net, gCur);
       const pfp = '<div class="wc-pfp"><img src="' + groupPhotoImg(g.chat_id, 80) + '" alt="" onerror="this.parentNode.innerHTML=\'' + esc(initials(g.title)).replace(/'/g, "\\'") + '\'"/></div>';
       const mc = g.member_count || 0;
       return '<div class="wallet-card ' + accent + '" data-chat="' + esc(g.chat_id) + '" data-title="' + esc(g.title) + '">' +
-        '<div class="wc-top"><div><div class="wc-title">' + esc(g.title) + '</div><div class="wc-sub">' + mc + ' member' + (mc === 1 ? '' : 's') + ' · ' + money(g.total_spend || 0, gCur) + ' total</div></div>' + pfp + '</div>' +
+        '<div class="wc-top"><div><div class="wc-title">' + esc(g.title) + '</div><div class="wc-sub">' + countWord(mc, 'memberW') + ' · ' + money(g.total_spend || 0, gCur) + ' total</div></div>' + pfp + '</div>' +
         '<div class="wc-net">' + netLabel + '</div>' +
       '</div>';
     }).join('');
 
     sec.innerHTML =
-      (noUser ? '<div class="banner">Opened outside Telegram — launch via the bot to track your own expenses.</div>' : '') +
-      '<div class="topbar"><div class="spacer44"></div><div class="topbar-title">Your groups</div><div class="spacer44"></div></div>' +
-      '<h1 class="headline">Your wallet</h1>' +
+      (noUser ? '<div class="banner">' + t('openedOutside') + '</div>' : '') +
+      '<div class="topbar"><div class="spacer44"></div><div class="topbar-title">' + t('yourGroups') + '</div><div class="spacer44"></div></div>' +
+      '<h1 class="headline">' + t('yourWallet') + '</h1>' +
       '<div class="subhead">' + groups.length + ' group' + (groups.length === 1 ? '' : 's') + ' · tap to open</div>' +
+      langSwitcher +
       '<div class="wallet-stack">' + cards + '</div>' +
-      '<button class="pill-cta add-group-btn" id="add-to-group">' + icon('plus') + ' Add Nova to a group</button>';
+      '<button class="pill-cta add-group-btn" id="add-to-group">' + icon('plus') + ' ' + t('addNovaToGroup') + '</button>';
 
     $$('.wallet-card', sec).forEach((c) => c.addEventListener('click', () => openGroup(c.getAttribute('data-chat'), c.getAttribute('data-title'))));
     bindAddToGroup(sec);
+    $$('[data-lang]', sec).forEach((b) => b.addEventListener('click', () => setLang(b.getAttribute('data-lang'))));
   }
 
   function bindAddToGroup(sec) {
@@ -622,12 +718,12 @@
     const noUser = !TG || !(TG.initDataUnsafe && TG.initDataUnsafe.user);
 
     if (!users.length) {
-      sec.innerHTML = (noUser ? '<div class="banner">Opened outside Telegram — launch via the bot to track your own expenses.</div>' : '') +
+      sec.innerHTML = (noUser ? '<div class="banner">' + t('openedOutside') + '</div>' : '') +
         '<div class="topbar">' + backOrSpacer('back-wallet') + '<div class="spacer44"></div><button class="icon-btn" id="nav-activity">' + icon('list') + '</button></div>' +
         '<h1 class="headline">' + esc(state.chatTitle) + '</h1>' +
-        '<div class="subhead">No expenses yet</div>' +
-        '<div class="empty"><div class="big">Start splitting</div><div class="sub">Add your first expense to get going.</div></div>' +
-        '<button class="pill-cta add-pill" id="add-pill">+ Add expense</button>';
+        '<div class="subhead">' + t('noExpensesSub') + '</div>' +
+        '<div class="empty"><div class="big">' + t('startSplittingBig') + '</div><div class="sub">' + t('startSplittingSub') + '</div></div>' +
+        '<button class="pill-cta add-pill" id="add-pill">' + t('addExpense') + '</button>';
       bindHomeNav(sec);
       return;
     }
@@ -651,15 +747,15 @@
     const memberList = users.map(memberRowHtml).join('');
 
     sec.innerHTML =
-      (noUser ? '<div class="banner">Opened outside Telegram — launch via the bot to track your own expenses.</div>' : '') +
-      '<div class="topbar">' + backOrSpacer('back-wallet') + '<div class="topbar-title">' + esc(state.chatTitle) + '</div><button class="pill small" id="nav-settle" style="background:var(--ink);color:#fff;">Settle</button></div>' +
+      (noUser ? '<div class="banner">' + t('openedOutside') + '</div>' : '') +
+      '<div class="topbar">' + backOrSpacer('back-wallet') + '<div class="topbar-title">' + esc(state.chatTitle) + '</div><button class="pill small" id="nav-settle" style="background:var(--ink);color:#fff;">' + t('settle') + '</button></div>' +
       '<h1 class="headline">' + esc(state.chatTitle) + '</h1>' +
-      '<div class="subhead">' + users.length + ' member' + (users.length === 1 ? '' : 's') + '</div>' +
+      '<div class="subhead">' + countWord(users.length, 'memberW') + '</div>' +
       '<div class="deck">' + deckCards.join('') + '</div>' +
       '<div class="member-list">' + memberList + '</div>' +
-      '<div style="display:flex; gap:10px; margin-top:14px;"><button class="icon-btn ghost" id="nav-activity" style="flex:1; width:auto; border-radius:var(--pill); height:44px;">Activity</button></div>' +
-      '<button class="pill-cta add-pill" id="add-pill">+ Add expense</button>' +
-      '<button class="leave-group-btn" id="leave-group">Leave this group</button>';
+      '<div style="display:flex; gap:10px; margin-top:14px;"><button class="icon-btn ghost" id="nav-activity" style="flex:1; width:auto; border-radius:var(--pill); height:44px;">' + t('activity') + '</button></div>' +
+      '<button class="pill-cta add-pill" id="add-pill">' + t('addExpense') + '</button>' +
+      '<button class="leave-group-btn" id="leave-group">' + t('leaveGroup') + '</button>';
 
     bindHomeNav(sec);
     const deckEl = $('.deck', sec);
@@ -683,7 +779,7 @@
     const confirmFn = (TG && TG.showConfirm)
       ? (msg, cb) => TG.showConfirm(msg, cb)
       : (msg, cb) => cb(window.confirm(msg));
-    confirmFn('Remove this group from your wallet?', (ok) => {
+    confirmFn(t('leaveConfirm'), (ok) => {
       if (!ok) return;
       setBusy(true);
       fetch('/api/leave_group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: state.chatId, user_name: state.user.name }) })
@@ -708,7 +804,7 @@
     const b = Number(state.balances[name] || 0);
     const c = state.defaultCurrency || 'EUR';
     const cls = b < -0.01 ? 'coral' : b > 0.01 ? 'lime' : 'sky';
-    const label = b < -0.01 ? 'owes' : b > 0.01 ? 'is owed' : 'settled up';
+    const label = b < -0.01 ? t('owes') : b > 0.01 ? t('isOwed') : t('settledUp');
     const cfg = {
       back2: { top: 0,  rot: -3, z: 1, scale: 0.95 },
       back1: { top: 18, rot: 3,  z: 2, scale: 0.97 },
@@ -716,7 +812,7 @@
     }[pos];
     const isFront = pos === 'front';
     return '<div class="deck-card card-' + cls + '" data-name="' + esc(name) + '" style="top:' + cfg.top + 'px;transform:rotate(' + cfg.rot + 'deg) scale(' + cfg.scale + ');z-index:' + cfg.z + '">' +
-      '<div class="deck-top"><div class="deck-who">' + esc(name) + (name === state.user.name ? '<span class="you"> · you</span>' : '') + '</div>' + userAvatar(name, 34) + '</div>' +
+      '<div class="deck-top"><div class="deck-who">' + esc(name) + (name === state.user.name ? '<span class="you"> · ' + t('you') + '</span>' : '') + '</div>' + userAvatar(name, 34) + '</div>' +
       (isFront ? '<div><div class="deck-amt">' + money(b, c) + '</div><div class="deck-label">' + label + '</div></div>' : '<div class="deck-amt-sm">' + money(b, c) + '</div>') +
     '</div>';
   }
@@ -725,10 +821,10 @@
     const b = Number(state.balances[name] || 0);
     const c = state.defaultCurrency || 'EUR';
     const cls = b < -0.01 ? 'coral' : b > 0.01 ? 'lime' : 'sky';
-    const label = b < -0.01 ? 'owes' : b > 0.01 ? 'is owed' : 'settled up';
+    const label = b < -0.01 ? t('owes') : b > 0.01 ? t('isOwed') : t('settledUp');
     let html = '<div class="member" data-name="' + esc(name) + '">' +
       userAvatar(name, 42) +
-      '<div class="member-info"><div class="member-name">' + esc(name) + (name === state.user.name ? '<span class="you"> · you</span>' : '') + '</div><div class="member-label label-' + cls + '">' + label + '</div></div>' +
+      '<div class="member-info"><div class="member-name">' + esc(name) + (name === state.user.name ? '<span class="you"> · ' + t('you') + '</span>' : '') + '</div><div class="member-label label-' + cls + '">' + label + '</div></div>' +
       '<div class="member-amt amt-' + cls + '">' + signed(b, c) + '</div>' +
     '</div>';
     if (state.expanded === name) {
@@ -745,11 +841,11 @@
             return '<div class="mini-row"><span>' + c + '</span><span class="amt-' + (amt >= 0 ? 'lime' : 'coral') + '">' + signed(amt, c) + approx + '</span></div>';
           }).join('');
         if (hasMultiple) {
-          html += '<div class="mini-row" style="font-size:11px;color:var(--muted);margin-top:4px;border-top:1px solid rgba(17,17,16,0.06);padding-top:6px;">All in default currency (' + state.defaultCurrency + ')</div>';
+          html += '<div class="mini-row" style="font-size:11px;color:var(--muted);margin-top:4px;border-top:1px solid rgba(17,17,16,0.06);padding-top:6px;">' + t('allInDefault') + ' (' + state.defaultCurrency + ')</div>';
         }
         html += '</div>';
       } else {
-        html += '<div class="member-detail"><div class="muted">No recent activity</div></div>';
+        html += '<div class="member-detail"><div class="muted">' + t('noRecentActivity') + '</div></div>';
       }
     }
     return html;
@@ -778,18 +874,18 @@
     }).join('');
 
     sec.innerHTML =
-      '<div class="topbar">' + backOrSpacer('add-back') + '<div class="topbar-title">New expense</div><div class="spacer44"></div></div>' +
+      '<div class="topbar">' + backOrSpacer('add-back') + '<div class="topbar-title">' + t('newExpense') + '</div><div class="spacer44"></div></div>' +
       '<div class="amount-hero"><span class="currency" id="amt-currency">' + curSym + '</span><input id="amt-input" inputmode="decimal" placeholder="0" value="' + esc(state.add.amount) + '" autocomplete="off" /></div>' +
       '<div class="currency-row" id="currency-row">' + curPillsHTML + '</div>' +
-      '<div class="field-label">Paid by</div>' +
+      '<div class="field-label">' + t('paidBy') + '</div>' +
       '<div class="avatar-row">' + users.map((u) => '<button class="avatar-pick ' + (state.add.payer === u ? 'sel' : '') + '" data-payer="' + esc(u) + '">' + userAvatar(u, 48) + '<span class="avatar-name">' + esc(u.split(' ')[0]) + '</span></button>').join('') + '</div>' +
-      '<div class="field-label">Split between</div>' +
+      '<div class="field-label">' + t('splitBetween') + '</div>' +
       '<div class="pill-row" id="split-row">' + users.map((u) => '<button class="pill ' + (state.add.selected.has(u) ? 'on' : '') + '" data-split="' + esc(u) + '">' + esc(u.split(' ')[0]) + '</button>').join('') + '</div>' +
       '<div id="custom-splits" style="margin-top:10px;"></div>' +
       '<div class="split-hint">' + splitHintText() + '</div>' +
-      '<div class="field-label">Description</div>' +
-      '<input id="desc-input" class="text-input" placeholder="What was it for?" value="' + esc(state.add.desc) + '" />' +
-      '<button class="pill-cta" id="add-save">Save expense</button>';
+      '<div class="field-label">' + t('description') + '</div>' +
+      '<input id="desc-input" class="text-input" placeholder="' + t('descPlaceholder') + '" value="' + esc(state.add.desc) + '" />' +
+      '<button class="pill-cta" id="add-save">' + t('saveExpense') + '</button>';
 
     $('#amt-input', sec).addEventListener('input', (e) => {
       let v = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
@@ -873,7 +969,7 @@
   function splitHintText() {
     const n = state.add.selected.size;
     const total = parseFloat(state.add.amount) || 0;
-    if (n === 0 || !(total > 0)) return 'Select people and enter an amount';
+    if (n === 0 || !(total > 0)) return t('selectPeople');
     const equalFmt = fmtNum(total / n);
     var remaining = total;
     Array.from(state.add.selected).forEach(function (u) {
@@ -882,9 +978,9 @@
       remaining -= isNaN(v) ? 0 : v;
     });
     remaining = Math.round(remaining * 100) / 100;
-    if (Math.abs(remaining) < 0.01) return n + ' people · equal split';
-    if (remaining > 0) return n + ' people · ' + money(remaining, state.add.currency) + ' unallocated';
-    return n + ' people · ' + money(-remaining, state.add.currency) + ' over';
+    if (Math.abs(remaining) < 0.01) return countWord(n, 'peopleW') + ' · ' + t('equalSplit');
+    if (remaining > 0) return countWord(n, 'peopleW') + ' · ' + money(remaining, state.add.currency) + ' ' + t('unallocated');
+    return countWord(n, 'peopleW') + ' · ' + money(-remaining, state.add.currency) + ' ' + t('over');
   }
 
   function refreshAddValidity() {
@@ -959,24 +1055,24 @@
           seenCurrencies.push(c);
           sections.push('<div class="field-label">' + c + '</div>');
         }
-        sections.push('<div class="settle-row"><div class="settle-who">' + userAvatar(t.from, 34) + '<span class="arrow">&rarr;</span>' + userAvatar(t.to, 34) + '</div><div class="settle-amt">' + money(t.amount, c) + '</div><button class="pill small" data-settle="' + i + '">Mark settled</button></div>');
+        sections.push('<div class="settle-row"><div class="settle-who">' + userAvatar(t.from, 34) + '<span class="arrow">&rarr;</span>' + userAvatar(t.to, 34) + '</div><div class="settle-amt">' + money(t.amount, c) + '</div><button class="pill small" data-settle="' + i + '">' + t('markSettled') + '</button></div>');
       });
       transferList = sections.join('');
     } else if (hasImbalance) {
       transferList = '';
     } else {
-      transferList = '<div class="empty" style="padding:30px 12px"><div class="big">All settled up</div><div class="sub">No outstanding balances.</div></div>';
+      transferList = '<div class="empty" style="padding:30px 12px"><div class="big">' + t('allSettledUp') + '</div><div class="sub">' + t('noOutstanding') + '</div></div>';
     }
 
     const cluster = avatarCluster(users);
 
     sec.innerHTML =
       '<div class="topbar">' + backOrSpacer('settle-back') + '<div class="spacer44"></div><div class="spacer44"></div></div>' +
-      '<h1 class="headline">Settle up</h1>' +
-      '<div class="subhead">Recent spend and suggested payments</div>' +
-      '<div class="stats-card"><div class="stats-label">Recent spend' + (hasMultiSpend ? ' (converted to ' + defCur + ')' : '') + '</div><div class="stats-total">' + money(totalSpend, defCur) + '</div><div class="bars">' + bars + '</div></div>' +
-      '<div class="field-label">Suggested payments</div>' +
-      (hasImbalance ? '<div class="banner">Balances don\'t add up — contact support</div>' : '') +
+      '<h1 class="headline">' + t('settleUp') + '</h1>' +
+      '<div class="subhead">' + t('settleSub') + '</div>' +
+      '<div class="stats-card"><div class="stats-label">' + t('recentSpend') + (hasMultiSpend ? ' (' + t('convertedTo') + ' ' + defCur + ')' : '') + '</div><div class="stats-total">' + money(totalSpend, defCur) + '</div><div class="bars">' + bars + '</div></div>' +
+      '<div class="field-label">' + t('suggestedPayments') + '</div>' +
+      (hasImbalance ? '<div class="banner">' + t('imbalanceBanner') + '</div>' : '') +
       '<div class="settle-list">' + transferList + '</div>' +
       '<div class="cluster-wrap">' + cluster + '</div>';
 
@@ -1014,18 +1110,18 @@
     if (state.loading) { sec.innerHTML = ''; return; }
 
     const items = []
-      .concat(state.expenses.map((e) => ({ kind: 'expense', id: e.id, tx_id: e.tx_id, title: e.desc || 'Expense', sub: 'Paid by ' + e.user, amount: e.amount, currency: e.currency || 'USD' })))
-      .concat(state.settlements.map((s) => ({ kind: 'settle', id: s.id, tx_id: s.tx_id, title: s.from + ' settled with ' + s.to, sub: 'Settlement', amount: s.amount, currency: s.currency || 'EUR', from: s.from, to: s.to })))
+      .concat(state.expenses.map((e) => ({ kind: 'expense', id: e.id, tx_id: e.tx_id, title: e.desc || 'Expense', sub: t('paidBy') + ' ' + e.user, amount: e.amount, currency: e.currency || 'USD' })))
+      .concat(state.settlements.map((s) => ({ kind: 'settle', id: s.id, tx_id: s.tx_id, title: s.from + ' ' + t('settledWith') + ' ' + s.to, sub: t('settlement'), amount: s.amount, currency: s.currency || 'EUR', from: s.from, to: s.to })))
       .sort((a, b) => b.id - a.id);
 
     const list = items.length
       ? items.map(renderActRow).join('')
-      : '<div class="empty"><div class="big">Nothing here yet</div><div class="sub">Expenses and settlements will appear here.</div></div>';
+      : '<div class="empty"><div class="big">' + t('nothingHereBig') + '</div><div class="sub">' + t('nothingHereSub') + '</div></div>';
 
     sec.innerHTML =
-      '<div class="topbar">' + backOrSpacer('act-back') + '<div class="topbar-title">Activity</div><div class="spacer44"></div></div>' +
-      '<h1 class="headline">Activity</h1>' +
-      '<div class="subhead">' + items.length + ' recent transaction' + (items.length === 1 ? '' : 's') + '</div>' +
+      '<div class="topbar">' + backOrSpacer('act-back') + '<div class="topbar-title">' + t('activity') + '</div><div class="spacer44"></div></div>' +
+      '<h1 class="headline">' + t('activity') + '</h1>' +
+      '<div class="subhead">' + countWord(items.length, 'txW') + '</div>' +
       '<div class="act-list">' + list + '</div>';
 
     const actBack = $('#act-back', sec);
@@ -1046,12 +1142,12 @@
       } else {
         const cached = state.txDetailCache[it.tx_id];
         if (!cached || cached === 'loading') {
-          detailHtml = '<div class="member-detail"><div class="muted">Loading…</div></div>';
+          detailHtml = '<div class="member-detail"><div class="muted">' + t('loading') + '</div></div>';
         } else if (cached.error) {
-          detailHtml = '<div class="member-detail"><div class="muted">Could not load details</div></div>';
+          detailHtml = '<div class="member-detail"><div class="muted">' + t('couldNotLoad') + '</div></div>';
         } else {
           const rows = [];
-          if (cached.payer) rows.push('<div class="mini-row"><span>' + esc(cached.payer.user) + ' paid</span><span class="amt-lime">+' + money(cached.payer.amount, cached.currency) + '</span></div>');
+          if (cached.payer) rows.push('<div class="mini-row"><span>' + esc(cached.payer.user) + ' ' + t('paidBy') + '</span><span class="amt-lime">+' + money(cached.payer.amount, cached.currency) + '</span></div>');
           cached.shares.forEach(function (s) {
             rows.push('<div class="mini-row"><span>' + esc(s.user) + '</span><span class="amt-coral">-' + money(s.amount, cached.currency) + '</span></div>');
           });
@@ -1095,7 +1191,7 @@
     const confirmFn = (TG && TG.showConfirm)
       ? (msg, cb) => TG.showConfirm(msg, cb)
       : (msg, cb) => cb(window.confirm(msg));
-    confirmFn('Delete this transaction?', (ok) => {
+    confirmFn(t('deleteConfirm'), (ok) => {
       if (!ok) return;
       setBusy(true);
       apiDelete(tx_id).then(() => {
@@ -1130,6 +1226,7 @@
     console.error(ev && ev.reason);
   });
 
+  initLang();
   recoverContext();
   if (state.initialGroup) {
     state.screen = 'balances';

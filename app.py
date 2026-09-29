@@ -75,6 +75,13 @@ def init_db():
             c.execute("ALTER TABLE members ADD COLUMN left_at INTEGER")
     except Exception as e:
         print(f"migration members: {e}")
+    try:
+        c.execute("PRAGMA table_info(groups)")
+        cols = [r[1] for r in c.fetchall()]
+        if "bot_lang" not in cols:
+            c.execute("ALTER TABLE groups ADD COLUMN bot_lang TEXT DEFAULT 'en'")
+    except Exception as e:
+        print(f"migration groups: {e}")
     conn.commit()
     conn.close()
 
@@ -140,6 +147,32 @@ def send_telegram_message(chat_id, text):
         urllib.request.urlopen(req, timeout=5)
     except Exception:
         pass
+
+
+NOTIFY_STRINGS = {
+    "en": {
+        "joined": "{user} joined the split group",
+        "added_one": '{payer} added a new expense "{desc}" for {who} ({amt})',
+        "added_many": '{payer} added a new expense "{desc}" for {who} ({amt})',
+        "settled": "{from_m} paid {to_m} {amt} to settle up",
+        "and": "and",
+    },
+    "ru": {
+        "joined": "{user} присоединился(-лась) к группе",
+        "added_one": '{payer} добавил(а) новый расход «{desc}» для {who} ({amt})',
+        "added_many": '{payer} добавил(а) новый расход «{desc}» для {who} ({amt})',
+        "settled": "{from_m} перевёл(а) {to_m} {amt}",
+        "and": "и",
+    },
+}
+
+
+def get_chat_bot_lang(chat_id):
+    conn = get_db()
+    row = conn.execute("SELECT bot_lang FROM groups WHERE chat_id=?", (chat_id,)).fetchone()
+    conn.close()
+    lang = row["bot_lang"] if row and row["bot_lang"] else "en"
+    return lang if lang in NOTIFY_STRINGS else "en"
 
 
 def mention(user_name, members_map):
@@ -277,14 +310,16 @@ async def add_expense(req: Request):
         try:
             recipients = [mention(u, members_map) for u in split_users]
             if recipients:
+                lang = get_chat_bot_lang(chat_id)
+                S = NOTIFY_STRINGS[lang]
                 if len(recipients) == 1:
                     who = recipients[0]
                 elif len(recipients) == 2:
-                    who = f"{recipients[0]} and {recipients[1]}"
+                    who = f"{recipients[0]} {S['and']} {recipients[1]}"
                 else:
-                    who = ", ".join(recipients[:-1]) + f" and {recipients[-1]}"
+                    who = ", ".join(recipients[:-1]) + f" {S['and']} {recipients[-1]}"
                 payer_mention = mention(payer, members_map)
-                msg = f"{payer_mention} added a new expense \"{desc}\" for {who} ({cur_sym(currency)}{total_amount:.2f})"
+                msg = S["added_one"].format(payer=payer_mention, desc=desc, who=who, amt=f"{cur_sym(currency)}{total_amount:.2f}")
                 send_telegram_message(chat_id, msg)
         except Exception:
             pass
@@ -330,7 +365,8 @@ async def settle_debt(req: Request):
         try:
             from_m = mention(from_user, members_map)
             to_m = mention(to_user, members_map)
-            msg = f"{from_m} paid {to_m} {cur_sym(currency)}{amount:.2f} to settle up"
+            lang = get_chat_bot_lang(chat_id)
+            msg = NOTIFY_STRINGS[lang]["settled"].format(from_m=from_m, to_m=to_m, amt=f"{cur_sym(currency)}{amount:.2f}")
             send_telegram_message(chat_id, msg)
         except Exception:
             pass
@@ -566,7 +602,8 @@ def get_balances(
 
     if joined_now and chat_id != "default" and chat_id.startswith("-"):
         try:
-            msg = f"{current_user} joined the split group"
+            lang = get_chat_bot_lang(chat_id)
+            msg = NOTIFY_STRINGS[lang]["joined"].format(user=current_user)
             send_telegram_message(chat_id, msg)
         except Exception:
             pass
