@@ -766,7 +766,16 @@
       '<input id="desc-input" class="text-input" placeholder="What was it for?" value="' + esc(state.add.desc) + '" />' +
       '<button class="pill-cta" id="add-save">Save expense</button>';
 
-    $('#amt-input', sec).addEventListener('input', (e) => { state.add.amount = e.target.value; renderSplitInputs(sec); $('.split-hint', sec).textContent = splitHintText(); refreshAddValidity(); });
+    $('#amt-input', sec).addEventListener('input', (e) => {
+      let v = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
+      const parts = v.split('.');
+      if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+      e.target.value = v;
+      state.add.amount = v;
+      renderSplitInputs(sec);
+      $('.split-hint', sec).textContent = splitHintText();
+      refreshAddValidity();
+    });
     $('#desc-input', sec).addEventListener('input', (e) => { state.add.desc = e.target.value; });
     $$('.cur-pill', sec).forEach((b) => b.addEventListener('click', () => {
       state.add.currency = b.getAttribute('data-cur');
@@ -813,8 +822,12 @@
     }).join('');
     $$('.split-amt-input', sec).forEach(function (inp) {
       inp.addEventListener('input', function () {
+        let v = inp.value.replace(',', '.').replace(/[^0-9.]/g, '');
+        const parts = v.split('.');
+        if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+        inp.value = v;
         var editedUser = inp.getAttribute('data-user');
-        state.add.splitAmounts[editedUser] = inp.value;
+        state.add.splitAmounts[editedUser] = v;
         $('.split-hint', sec).textContent = splitHintText();
       });
       inp.addEventListener('blur', function () {
