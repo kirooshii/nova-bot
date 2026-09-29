@@ -338,6 +338,24 @@ async def settle_debt(req: Request):
     return {"status": "ok"}
 
 
+@app.get("/api/expense_detail")
+def expense_detail(chat_id: str = Query(...), tx_id: str = Query(...)):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT user_name, amount, currency FROM expenses WHERE chat_id=? AND tx_id=? ORDER BY id", (chat_id, tx_id))
+    rows = c.fetchall()
+    conn.close()
+    payer = None
+    shares = []
+    for r in rows:
+        if r["amount"] > 0:
+            payer = {"user": r["user_name"], "amount": round(r["amount"], 2)}
+        else:
+            shares.append({"user": r["user_name"], "amount": round(abs(r["amount"]), 2)})
+    currency = rows[0]["currency"] if rows else "USD"
+    return {"payer": payer, "shares": shares, "currency": currency}
+
+
 @app.get("/api/groups")
 def get_groups(current_user: str = Query(""), tg_user_id: str = Query("")):
     """Return all split groups the current_user is a member of."""

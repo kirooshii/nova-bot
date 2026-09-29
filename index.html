@@ -219,7 +219,8 @@
   .cluster-avatar.extra { width:36px; height:36px; background: var(--ink); color:#fff; font-size:13px; font-weight:600; border-radius:50%; align-items:center; justify-content:center; border: 2px solid var(--bg); }
 
   .act-list { display:flex; flex-direction:column; gap: 8px; }
-  .act-row { display:flex; align-items:center; gap: 12px; background: var(--surface); border-radius: 18px; padding: 12px 14px; border: 1px solid rgba(17,17,16,0.05); }
+  .act-row { background: var(--surface); border-radius: 18px; padding: 12px 14px; border: 1px solid rgba(17,17,16,0.05); cursor: pointer; }
+  .act-row-top { display:flex; align-items:center; gap: 12px; }
   .act-kind { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .act-kind.expense { background: var(--sky); color: var(--ink); }
   .act-kind.settle { background: var(--lime); color: var(--ink); }
@@ -325,6 +326,8 @@
     error: null,
     expanded: null,
     deckIndex: 0,
+    activityExpanded: null,
+    txDetailCache: {},
     initialGroup: null,
     chatTitleKnown: false,
     add: { amount: '', payer: null, selected: new Set(), desc: '', currency: '', splitAmounts: {} }
@@ -447,6 +450,12 @@
   async function apiDelete(tx_id) {
     const r = await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: state.chatId, tx_id: tx_id }) });
     if (!r.ok) throw new Error('Could not delete');
+    return r.json();
+  }
+  async function apiExpenseDetail(tx_id) {
+    const params = new URLSearchParams({ chat_id: state.chatId, tx_id: tx_id });
+    const r = await fetch('/api/expense_detail?' + params.toString());
+    if (!r.ok) throw new Error('Could not load details');
     return r.json();
   }
   async function apiSettle(from_user, to_user, amount, currency) {
@@ -1005,11 +1014,11 @@
 
     const items = []
       .concat(state.expenses.map((e) => ({ kind: 'expense', id: e.id, tx_id: e.tx_id, title: e.desc || 'Expense', sub: 'Paid by ' + e.user, amount: e.amount, currency: e.currency || 'USD' })))
-      .concat(state.settlements.map((s) => ({ kind: 'settle', id: s.id, tx_id: s.tx_id, title: s.from + ' settled with ' + s.to, sub: 'Settlement', amount: s.amount, currency: s.currency || 'EUR' })))
+      .concat(state.settlements.map((s) => ({ kind: 'settle', id: s.id, tx_id: s.tx_id, title: s.from + ' settled with ' + s.to, sub: 'Settlement', amount: s.amount, currency: s.currency || 'EUR', from: s.from, to: s.to })))
       .sort((a, b) => b.id - a.id);
 
     const list = items.length
-      ? items.map((it) => '<div class="act-row"><div class="act-kind ' + it.kind + '">' + icon(it.kind === 'expense' ? 'plus' : 'check') + '</div><div class="act-info"><div class="act-title">' + esc(it.title) + '</div><div class="act-sub">' + esc(it.sub) + '</div></div><div class="act-amt">' + money(it.amount, it.currency) + '</div><button class="icon-btn small del" data-del="' + esc(it.tx_id) + '">' + icon('trash') + '</button></div>').join('')
+      ? items.map(renderActRow).join('')
       : '<div class="empty"><div class="big">Nothing here yet</div><div class="sub">Expenses and settlements will appear here.</div></div>';
 
     sec.innerHTML =
@@ -1020,7 +1029,65 @@
 
     const actBack = $('#act-back', sec);
     if (actBack) actBack.addEventListener('click', () => go('balances'));
-    $$('.del', sec).forEach((b) => b.addEventListener('click', () => deleteAction(b.getAttribute('data-del'))));
+    $$('.del', sec).forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); deleteAction(b.getAttribute('data-del')); }));
+    $$('.act-row', sec).forEach((row) => row.addEventListener('click', () => toggleActivityExpand(row.getAttribute('data-tx'))));
+  }
+
+  function renderActRow(it) {
+    const expanded = state.activityExpanded === it.tx_id;
+    let detailHtml = '';
+    if (expanded) {
+      if (it.kind === 'settle') {
+        detailHtml = '<div class="member-detail">' +
+          '<div class="mini-row"><span>' + esc(it.from) + '</span><span class="amt-coral">-' + money(it.amount, it.currency) + '</span></div>' +
+          '<div class="mini-row"><span>' + esc(it.to) + '</span><span class="amt-lime">+' + money(it.amount, it.currency) + '</span></div>' +
+        '</div>';
+      } else {
+        const cached = state.txDetailCache[it.tx_id];
+        if (!cached || cached === 'loading') {
+          detailHtml = '<div class="member-detail"><div class="muted">Loading…</div></div>';
+        } else if (cached.error) {
+          detailHtml = '<div class="member-detail"><div class="muted">Could not load details</div></div>';
+        } else {
+          const rows = [];
+          if (cached.payer) rows.push('<div class="mini-row"><span>' + esc(cached.payer.user) + ' paid</span><span class="amt-lime">+' + money(cached.payer.amount, cached.currency) + '</span></div>');
+          cached.shares.forEach(function (s) {
+            rows.push('<div class="mini-row"><span>' + esc(s.user) + '</span><span class="amt-coral">-' + money(s.amount, cached.currency) + '</span></div>');
+          });
+          detailHtml = '<div class="member-detail">' + rows.join('') + '</div>';
+        }
+      }
+    }
+    return '<div class="act-row" data-tx="' + esc(it.tx_id) + '">' +
+      '<div class="act-row-top">' +
+      '<div class="act-kind ' + it.kind + '">' + icon(it.kind === 'expense' ? 'plus' : 'check') + '</div>' +
+      '<div class="act-info"><div class="act-title">' + esc(it.title) + '</div><div class="act-sub">' + esc(it.sub) + '</div></div>' +
+      '<div class="act-amt">' + money(it.amount, it.currency) + '</div>' +
+      '<button class="icon-btn small del" data-del="' + esc(it.tx_id) + '">' + icon('trash') + '</button>' +
+      '</div>' +
+      detailHtml +
+    '</div>';
+  }
+
+  function toggleActivityExpand(tx_id) {
+    if (state.activityExpanded === tx_id) {
+      state.activityExpanded = null;
+      renderActivity();
+      return;
+    }
+    state.activityExpanded = tx_id;
+    renderActivity();
+    const isExpense = state.expenses.some((e) => e.tx_id === tx_id);
+    if (isExpense && !state.txDetailCache[tx_id]) {
+      state.txDetailCache[tx_id] = 'loading';
+      apiExpenseDetail(tx_id).then(function (d) {
+        state.txDetailCache[tx_id] = d;
+        if (state.activityExpanded === tx_id) renderActivity();
+      }).catch(function () {
+        state.txDetailCache[tx_id] = { error: true };
+        if (state.activityExpanded === tx_id) renderActivity();
+      });
+    }
   }
 
   function deleteAction(tx_id) {
