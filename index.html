@@ -737,8 +737,9 @@
     if (!users.includes(state.user.name)) users.unshift(state.user.name);
     if (!state.add.payer) state.add.payer = state.user.name;
     if (state.add.selected.size === 0) state.add.selected = new Set(users);
+    if (!state.add.currency) state.add.currency = state.defaultCurrency || 'EUR';
 
-    const cur = state.add.currency || state.defaultCurrency || 'EUR';
+    const cur = state.add.currency;
     const curSym = sym(cur);
 
     const curOrder = (state.currencies && state.currencies.length) ? state.currencies.slice() : ['EUR'];
@@ -849,13 +850,15 @@
     const n = state.add.selected.size;
     const total = parseFloat(state.add.amount) || 0;
     if (n === 0 || !(total > 0)) return 'Select people and enter an amount';
-    const equal = total / n;
+    const equalFmt = fmtNum(total / n);
     var remaining = total;
     Array.from(state.add.selected).forEach(function (u) {
-      remaining -= parseFloat(state.add.splitAmounts[u]) || 0;
+      var raw = state.add.splitAmounts[u];
+      var v = parseFloat(raw !== undefined ? raw : equalFmt);
+      remaining -= isNaN(v) ? 0 : v;
     });
     remaining = Math.round(remaining * 100) / 100;
-    if (Math.abs(remaining) < 0.01) return n + ' people · custom split';
+    if (Math.abs(remaining) < 0.01) return n + ' people · equal split';
     if (remaining > 0) return n + ' people · ' + money(remaining, state.add.currency) + ' unallocated';
     return n + ' people · ' + money(-remaining, state.add.currency) + ' over';
   }
@@ -864,9 +867,13 @@
     const amt = parseFloat(state.add.amount);
     var valid = amt > 0 && state.add.payer && state.add.selected.size > 0;
     if (valid) {
+      const n = state.add.selected.size;
+      const equalFmt = fmtNum(amt / n);
       var totalSplit = 0;
       Array.from(state.add.selected).forEach(function (u) {
-        totalSplit += parseFloat(state.add.splitAmounts[u]) || 0;
+        var raw = state.add.splitAmounts[u];
+        var v = parseFloat(raw !== undefined ? raw : equalFmt);
+        totalSplit += isNaN(v) ? 0 : v;
       });
       if (Math.abs(totalSplit - amt) > 0.01) valid = false;
     }
@@ -885,7 +892,7 @@
     });
     setBusy(true);
     try {
-      await apiAdd({ chat_id: state.chatId, user: state.add.payer, amount: amt, desc: state.add.desc || 'Expense', splits: splits, currency: state.add.currency || state.defaultCurrency || 'EUR' });
+      await apiAdd({ chat_id: state.chatId, user: state.add.payer, amount: amt, desc: state.add.desc || 'Expense', splits: splits, currency: state.add.currency });
       haptic('success');
       state.add = { amount: '', payer: null, selected: new Set(), desc: '', currency: state.defaultCurrency || 'EUR', splitAmounts: {} };
       await loadData();
