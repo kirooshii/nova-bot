@@ -319,6 +319,7 @@
     currencyCounts: {},
     currencies: ['EUR'],
     expenseShares: {},
+    imbalance: {},
     screen: 'wallet',
     loading: false,
     error: null,
@@ -475,6 +476,7 @@
       state.currencyCounts = d.currency_counts || {};
       state.currencies = d.currencies || ['EUR'];
       state.expenseShares = d.expense_shares || {};
+      state.imbalance = d.imbalance || {};
     } catch (e) {
       state.error = e.message;
     } finally {
@@ -901,6 +903,8 @@
 
     const transfersByCur = state.transfersByCurrency || [];
     const hasMultipleCurrencies = (new Set(transfersByCur.map(function (t) { return t.currency; }))).size > 1;
+    const imbalances = state.imbalance || {};
+    const hasImbalance = Object.keys(imbalances).length > 0;
     let transferList;
     if (transfersByCur.length) {
       const sections = [];
@@ -914,6 +918,8 @@
         sections.push('<div class="settle-row"><div class="settle-who">' + userAvatar(t.from, 34) + '<span class="arrow">&rarr;</span>' + userAvatar(t.to, 34) + '</div><div class="settle-amt">' + money(t.amount, c) + '</div><button class="pill small" data-settle="' + i + '">Mark settled</button></div>');
       });
       transferList = sections.join('');
+    } else if (hasImbalance) {
+      transferList = '';
     } else {
       transferList = '<div class="empty" style="padding:30px 12px"><div class="big">All settled up</div><div class="sub">No outstanding balances.</div></div>';
     }
@@ -926,6 +932,7 @@
       '<div class="subhead">Recent spend and suggested payments</div>' +
       '<div class="stats-card"><div class="stats-label">Recent spend' + (hasMultiSpend ? ' (converted to ' + defCur + ')' : '') + '</div><div class="stats-total">' + money(totalSpend, defCur) + '</div><div class="bars">' + bars + '</div></div>' +
       '<div class="field-label">Suggested payments</div>' +
+      (hasImbalance ? '<div class="banner">Balances don\'t add up — contact support</div>' : '') +
       '<div class="settle-list">' + transferList + '</div>' +
       '<div class="cluster-wrap">' + cluster + '</div>';
 

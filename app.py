@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, Response, FileResponse
+from fastapi.responses import HTMLResponse, Response, FileResponse, JSONResponse
 import sqlite3
 import uvicorn
 import uuid
@@ -238,6 +238,20 @@ async def add_expense(req: Request):
     desc = data.get("desc", "")
     splits = data.get("splits", {})
     currency = str(data.get("currency", "USD"))
+
+    try:
+        split_sum = round(sum(float(v) for v in splits.values()), 2)
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid split shares"})
+    diff = round(split_sum - total_amount, 2)
+    if abs(diff) > 0.02:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Split shares do not add up to the total amount"})
+    if abs(diff) > 0 and splits:
+        adjusted = next((u for u in splits if round(float(splits[u]) - diff, 2) > 0), None)
+        if adjusted is None:
+            adjusted = max(splits, key=lambda u: float(splits[u]))
+        splits = dict(splits)
+        splits[adjusted] = round(float(splits[adjusted]) - diff, 2)
 
     tx_id = str(uuid.uuid4())
 
@@ -550,6 +564,12 @@ def get_balances(
         all_currencies.add(cur)
         balances_cur.setdefault(row["user_name"], {})[cur] = round(row["balance"], 2)
 
+    imbalance = {}
+    for cur in all_currencies:
+        cur_sum = round(sum(balances_cur[u].get(cur, 0.0) for u in balances_cur), 2)
+        if abs(cur_sum) > 0.01:
+            imbalance[cur] = cur_sum
+
     # Determine default currency (most popular by positive expense count)
     # FIX (bug 2/3): deterministic tie-break — previously ties resolved
     # essentially at random.
@@ -691,6 +711,7 @@ def get_balances(
         "currency_counts": currency_counts,
         "currencies": currencies,
         "expense_shares": expense_shares,
+        "imbalance": imbalance,
     }
 
 
