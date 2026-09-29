@@ -369,11 +369,11 @@
       noGroupsBig: "Пока нет групп", noGroupsSub: "Добавьте Nova в групповой чат, чтобы начать учёт расходов.",
       addNovaToGroup: "Добавить Nova в группу",
       openedOutside: "Открыто вне Telegram — запустите через бота, чтобы вести учёт своих расходов.",
-      settledUp: "баланс сведён", youOwe: "вы должны", youreOwed: "вам должны",
+      settledUp: "по нулям 🤝", youOwe: "вы должны", youreOwed: "вам должны",
       noExpensesSub: "Пока нет расходов", startSplittingBig: "Начните делить расходы",
       startSplittingSub: "Добавьте первый расход, чтобы начать.", addExpense: "+ Добавить расход",
       activity: "Активность", settle: "Рассчитаться", leaveGroup: "Покинуть эту группу",
-      owes: "должен(на)", isOwed: "должны", noRecentActivity: "Нет недавней активности",
+      owes: "в долгах 😔", isOwed: "ожидает денюшек", noRecentActivity: "Нет недавней активности",
       allInDefault: "Всё в базовой валюте", newExpense: "Новый расход",
       paidBy: "Оплатил(а)", splitBetween: "Разделить между",
       selectPeople: "Выберите людей и введите сумму", equalSplit: "поровну",
@@ -1049,13 +1049,13 @@
     if (transfersByCur.length) {
       const sections = [];
       var seenCurrencies = [];
-      transfersByCur.forEach(function (t, i) {
-        var c = t.currency || 'EUR';
+      transfersByCur.forEach(function (tr, i) {
+        var c = tr.currency || 'EUR';
         if (seenCurrencies.indexOf(c) === -1) {
           seenCurrencies.push(c);
           sections.push('<div class="field-label">' + c + '</div>');
         }
-        sections.push('<div class="settle-row"><div class="settle-who">' + userAvatar(t.from, 34) + '<span class="arrow">&rarr;</span>' + userAvatar(t.to, 34) + '</div><div class="settle-amt">' + money(t.amount, c) + '</div><button class="pill small" data-settle="' + i + '">' + t('markSettled') + '</button></div>');
+        sections.push('<div class="settle-row"><div class="settle-who">' + userAvatar(tr.from, 34) + '<span class="arrow">&rarr;</span>' + userAvatar(tr.to, 34) + '</div><div class="settle-amt">' + money(tr.amount, c) + '</div><button class="pill small" data-settle="' + i + '">' + t('markSettled') + '</button></div>');
       });
       transferList = sections.join('');
     } else if (hasImbalance) {
