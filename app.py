@@ -18,9 +18,6 @@ app.add_middleware(
 PHOTOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "photos")
 os.makedirs(PHOTOS_DIR, exist_ok=True)
 
-FONTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
-os.makedirs(FONTS_DIR, exist_ok=True)
-
 
 def get_db():
     conn = sqlite3.connect("nova.db", check_same_thread=False)
@@ -531,14 +528,6 @@ def group_photo(chat_id: str = Query("")):
         path = os.path.join(PHOTOS_DIR, r["photo_file"])
         if os.path.exists(path):
             return FileResponse(path, media_type="image/jpeg")
-    return Response(status_code=404)
-
-
-@app.get("/fonts/{fname}")
-def font_file(fname: str):
-    path = os.path.join(FONTS_DIR, os.path.basename(fname))
-    if os.path.exists(path) and os.path.isfile(path):
-        return FileResponse(path, media_type="font/woff2")
     return Response(status_code=404)
 
 

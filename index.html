@@ -24,21 +24,6 @@
     --pill: 999px;
     --font: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   }
-  @font-face {
-    font-family: 'Grunt Grotesk';
-    src: url('/fonts/GruntGrotesk-Light.woff2') format('woff2');
-    font-weight: 300 500;
-    font-display: swap;
-  }
-  @font-face {
-    font-family: 'Grunt Grotesk';
-    src: url('/fonts/GruntGrotesk-Bold.woff2') format('woff2');
-    font-weight: 600 700;
-    font-display: swap;
-  }
-  :root[data-lang="ru"] {
-    --font: 'Grunt Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  }
   html, body {
     background: var(--bg);
     color: var(--ink);
@@ -518,16 +503,13 @@
 
   function initLang() {
     var saved = localStorage.getItem('nova_lang');
-    if (saved === 'en' || saved === 'ru') { state.lang = saved; } else {
-      var tgLang = (TG && TG.initDataUnsafe && TG.initDataUnsafe.user && TG.initDataUnsafe.user.language_code) || '';
-      state.lang = tgLang.toLowerCase().startsWith('ru') ? 'ru' : 'en';
-    }
-    document.documentElement.setAttribute('data-lang', state.lang);
+    if (saved === 'en' || saved === 'ru') { state.lang = saved; return; }
+    var tgLang = (TG && TG.initDataUnsafe && TG.initDataUnsafe.user && TG.initDataUnsafe.user.language_code) || '';
+    state.lang = tgLang.toLowerCase().startsWith('ru') ? 'ru' : 'en';
   }
   function setLang(l) {
     state.lang = l;
     try { localStorage.setItem('nova_lang', l); } catch (e) {}
-    document.documentElement.setAttribute('data-lang', l);
     render();
   }
 
