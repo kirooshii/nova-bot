@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response, FileResponse, JSONResponse
 import sqlite3
@@ -6,7 +6,11 @@ import uvicorn
 import uuid
 import json
 import os
+import time
+import hashlib
+import hmac
 import urllib.request
+from urllib.parse import parse_qsl
 from config import BOT_TOKEN
 
 app = FastAPI()
@@ -254,6 +258,49 @@ def ensure_group_title_and_photo(chat_id, conn):
         return r["title"]
 
 
+def verify_init_data(init_data: str, bot_token: str, max_age_seconds: int = 86400):
+    """Returns the parsed user dict if init_data is valid and fresh, else None."""
+    if not init_data:
+        return None
+    try:
+        parsed = dict(parse_qsl(init_data, strict_parsing=True))
+        received_hash = parsed.pop("hash", None)
+        if not received_hash:
+            return None
+        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
+        secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+        computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(computed_hash, received_hash):
+            return None
+        auth_date = int(parsed.get("auth_date", 0))
+        if max_age_seconds and (time.time() - auth_date) > max_age_seconds:
+            return None
+        user_json = parsed.get("user")
+        return json.loads(user_json) if user_json else None
+    except Exception:
+        return None
+
+
+INIT_DATA_MAX_AGE_SECONDS = 86400
+
+
+def require_telegram_user(x_telegram_init_data: str = Header(default="")):
+    user = verify_init_data(x_telegram_init_data, BOT_TOKEN, INIT_DATA_MAX_AGE_SECONDS)
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Invalid or missing Telegram identity")
+    return user
+
+
+def resolve_user_name(chat_id: str, tg_user_id: int) -> str | None:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT user_name FROM members WHERE chat_id=? AND tg_user_id=? AND left_at IS NULL",
+        (chat_id, tg_user_id),
+    ).fetchone()
+    conn.close()
+    return row["user_name"] if row else None
+
+
 @app.get("/")
 def read_root():
     with open("index.html", "r") as f:
@@ -263,7 +310,7 @@ def read_root():
 
 
 @app.post("/api/add")
-async def add_expense(req: Request):
+async def add_expense(req: Request, tg_user: dict = Depends(require_telegram_user)):
     data = await req.json()
     chat_id = str(data.get("chat_id", "default"))
     payer = data.get("user", "Unknown")
@@ -271,6 +318,10 @@ async def add_expense(req: Request):
     desc = data.get("desc", "")
     splits = data.get("splits", {})
     currency = str(data.get("currency", "USD"))
+
+    adder = resolve_user_name(chat_id, tg_user["id"])
+    if not adder:
+        raise HTTPException(status_code=403, detail="You are not a recognized member of this group")
 
     try:
         split_sum = round(sum(float(v) for v in splits.values()), 2)
@@ -328,10 +379,14 @@ async def add_expense(req: Request):
 
 
 @app.post("/api/delete")
-async def delete_expense(req: Request):
+async def delete_expense(req: Request, tg_user: dict = Depends(require_telegram_user)):
     data = await req.json()
     tx_id = data.get("tx_id")
     chat_id = str(data.get("chat_id", "default"))
+
+    deleter = resolve_user_name(chat_id, tg_user["id"])
+    if not deleter:
+        raise HTTPException(status_code=403, detail="You are not a recognized member of this group")
 
     conn = get_db()
     conn.cursor().execute("DELETE FROM expenses WHERE tx_id=? AND chat_id=?", (tx_id, chat_id))
@@ -341,13 +396,19 @@ async def delete_expense(req: Request):
 
 
 @app.post("/api/settle")
-async def settle_debt(req: Request):
+async def settle_debt(req: Request, tg_user: dict = Depends(require_telegram_user)):
     data = await req.json()
     chat_id = str(data.get("chat_id", "default"))
     from_user = data.get("from_user")
     to_user = data.get("to_user")
     amount = float(data.get("amount", 0))
     currency = str(data.get("currency", "EUR"))
+
+    caller = resolve_user_name(chat_id, tg_user["id"])
+    if not caller:
+        raise HTTPException(status_code=403, detail="You are not a recognized member of this group")
+    if caller not in (from_user, to_user):
+        raise HTTPException(status_code=403, detail="You can only settle a transaction you are part of")
 
     tx_id = str(uuid.uuid4())
     desc = "Settled debt"
@@ -532,14 +593,19 @@ def group_photo(chat_id: str = Query("")):
 
 
 @app.post("/api/leave_group")
-async def leave_group(req: Request):
+async def leave_group(req: Request, tg_user: dict = Depends(require_telegram_user)):
     """Mark the current user as having left a group so it disappears from their wallet."""
     data = await req.json()
     chat_id = str(data.get("chat_id", ""))
-    user_name = data.get("user_name", "")
+    caller = resolve_user_name(chat_id, tg_user["id"])
+    if not caller:
+        raise HTTPException(status_code=403, detail="You are not a recognized member of this group")
+    user_name = data.get("user_name")
+    if user_name and user_name != caller:
+        raise HTTPException(status_code=403, detail="You cannot remove someone else from this group")
     conn = get_db()
     c = conn.cursor()
-    c.execute("UPDATE members SET left_at=strftime('%s','now') WHERE chat_id=? AND user_name=?", (chat_id, user_name))
+    c.execute("UPDATE members SET left_at=strftime('%s','now') WHERE chat_id=? AND user_name=?", (chat_id, caller))
     conn.commit()
     conn.close()
     return {"status": "ok"}
@@ -548,40 +614,52 @@ async def leave_group(req: Request):
 @app.get("/api/balances")
 def get_balances(
     chat_id: str = "default",
-    current_user: str = "",
-    tg_user_id: str = "",
     username: str = "",
     photo_url: str = "",
     chat_title: str = "",
+    tg_user: dict = Depends(require_telegram_user),
 ):
     conn = get_db()
     cursor = conn.cursor()
+
+    # Identity comes from the signed Telegram initData, never from query params.
+    verified_tg_id = int(tg_user["id"])
+    canonical_name = resolve_user_name(chat_id, verified_tg_id)
+    current_user = canonical_name or (
+        tg_user.get("first_name") or tg_user.get("username") or f"User {verified_tg_id}"
+    )
+    verified_username = tg_user.get("username") or username or None
+    verified_photo = tg_user.get("photo_url") or photo_url or None
 
     # Register or update membership for the current user.
     # Send a "joined" notification the first time we see this user in this group.
     joined_now = False
     if current_user:
-        cursor.execute("SELECT left_at FROM members WHERE chat_id=? AND user_name=?", (chat_id, current_user))
+        cursor.execute("SELECT left_at, tg_user_id FROM members WHERE chat_id=? AND user_name=?", (chat_id, current_user))
         existing = cursor.fetchone()
         if not existing:
             joined_now = True
             cursor.execute(
                 "INSERT INTO members (chat_id, user_name, tg_user_id, username, photo_url, first_seen, left_at) VALUES (?, ?, ?, ?, ?, strftime('%s','now'), NULL)",
-                (chat_id, current_user, int(tg_user_id) if tg_user_id else None, username or None, photo_url or None),
+                (chat_id, current_user, verified_tg_id, verified_username, verified_photo),
             )
-        else:
+        elif existing["tg_user_id"] is None or int(existing["tg_user_id"]) == verified_tg_id:
             # update mutable fields and re-join if previously left
             cursor.execute(
-                "UPDATE members SET tg_user_id=COALESCE(?, tg_user_id), username=COALESCE(?, username), photo_url=COALESCE(?, photo_url), left_at=NULL WHERE chat_id=? AND user_name=?",
-                (int(tg_user_id) if tg_user_id else None, username or None, photo_url or None, chat_id, current_user),
+                "UPDATE members SET tg_user_id=?, username=COALESCE(?, username), photo_url=COALESCE(?, photo_url), left_at=NULL WHERE chat_id=? AND user_name=?",
+                (verified_tg_id, verified_username, verified_photo, chat_id, current_user),
             )
             if existing["left_at"]:
                 joined_now = True  # re-joining
+        else:
+            # This display name is registered to a different Telegram user — do not hijack it.
+            current_user = ""
 
-        # Also make sure user appears in expenses (existing behavior) so balances include them
-        cursor.execute("SELECT 1 FROM expenses WHERE chat_id=? AND user_name=?", (chat_id, current_user))
-        if not cursor.fetchone():
-            cursor.execute("INSERT INTO expenses (chat_id, tx_id, user_name, amount, description) VALUES (?, ?, ?, ?, ?)", (chat_id, "join", current_user, 0.0, "Joined group"))
+        if current_user:
+            # Also make sure user appears in expenses (existing behavior) so balances include them
+            cursor.execute("SELECT 1 FROM expenses WHERE chat_id=? AND user_name=?", (chat_id, current_user))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO expenses (chat_id, tx_id, user_name, amount, description) VALUES (?, ?, ?, ?, ?)", (chat_id, "join", current_user, 0.0, "Joined group"))
 
     # Upsert group row
     # FIX (bug 1): never let a client-supplied title clobber a title we
@@ -753,6 +831,7 @@ def get_balances(
             j += 1
 
     return {
+        "me": current_user,
         "balances": balances,
         "balances_per_currency": balances_cur,
         "expenses": recent,

@@ -271,6 +271,9 @@
 <script>
 (function () {
   const TG = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+  function tgInitData() {
+    return (TG && TG.initData) ? TG.initData : '';
+  }
   const ACCENTS = ['lime', 'coral', 'sky'];
   const CURRENCIES = [
     { code: 'USD', symbol: '$',  label: 'USD' },
@@ -514,15 +517,16 @@
   }
 
   async function apiBalances() {
+    if (!tgInitData()) throw new Error(t('openedOutside'));
     const params = new URLSearchParams({
       chat_id: state.chatId,
-      current_user: state.user.name,
-      tg_user_id: String(state.user.id || ''),
       username: state.user.username || '',
       photo_url: state.user.photoUrl || '',
       chat_title: state.chatTitleKnown ? (state.chatTitle || '') : ''
     });
-    const r = await fetch('/api/balances?' + params.toString());
+    const r = await fetch('/api/balances?' + params.toString(), {
+      headers: { 'X-Telegram-Init-Data': tgInitData() }
+    });
     if (!r.ok) throw new Error('Could not load balances');
     return r.json();
   }
@@ -533,12 +537,14 @@
     return r.json();
   }
   async function apiAdd(p) {
-    const r = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+    if (!tgInitData()) throw new Error(t('openedOutside'));
+    const r = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tgInitData() }, body: JSON.stringify(p) });
     if (!r.ok) throw new Error('Could not add expense');
     return r.json();
   }
   async function apiDelete(tx_id) {
-    const r = await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: state.chatId, tx_id: tx_id }) });
+    if (!tgInitData()) throw new Error(t('openedOutside'));
+    const r = await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tgInitData() }, body: JSON.stringify({ chat_id: state.chatId, tx_id: tx_id }) });
     if (!r.ok) throw new Error('Could not delete');
     return r.json();
   }
@@ -549,7 +555,8 @@
     return r.json();
   }
   async function apiSettle(from_user, to_user, amount, currency) {
-    const r = await fetch('/api/settle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: state.chatId, from_user: from_user, to_user: to_user, amount: amount, currency: currency || 'EUR' }) });
+    if (!tgInitData()) throw new Error(t('openedOutside'));
+    const r = await fetch('/api/settle', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tgInitData() }, body: JSON.stringify({ chat_id: state.chatId, from_user: from_user, to_user: to_user, amount: amount, currency: currency || 'EUR' }) });
     if (!r.ok) throw new Error('Could not settle');
     return r.json();
   }
@@ -562,6 +569,7 @@
     state.error = null;
     try {
       const d = await apiBalances();
+      if (d.me) state.user.name = d.me;
       state.users = d.users || [];
       state.balances = d.balances || {};
       state.balancesPerCurrency = d.balances_per_currency || {};
@@ -778,13 +786,14 @@
   }
 
   async function leaveGroupAction() {
+    if (!tgInitData()) { haptic('error'); alert(t('openedOutside')); return; }
     const confirmFn = (TG && TG.showConfirm)
       ? (msg, cb) => TG.showConfirm(msg, cb)
       : (msg, cb) => cb(window.confirm(msg));
     confirmFn(t('leaveConfirm'), (ok) => {
       if (!ok) return;
       setBusy(true);
-      fetch('/api/leave_group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: state.chatId, user_name: state.user.name }) })
+      fetch('/api/leave_group', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tgInitData() }, body: JSON.stringify({ chat_id: state.chatId }) })
         .then(() => { haptic('success'); state.screen = 'wallet'; updateBackButton(); render(); loadGroups(); })
         .catch((e) => { haptic('error'); alert(e.message); })
         .finally(() => setBusy(false));
