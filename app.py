@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response, FileResponse, JSONResponse
