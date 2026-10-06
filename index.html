@@ -1158,7 +1158,7 @@
           detailHtml = '<div class="member-detail"><div class="muted">' + t('couldNotLoad') + '</div></div>';
         } else {
           const rows = [];
-          if (cached.payer) rows.push('<div class="mini-row"><span>' + esc(cached.payer.user) + ' ' + t('paidBy') + '</span><span class="amt-lime">+' + money(cached.payer.amount, cached.currency) + '</span></div>');
+          if (cached.payer) rows.push('<div class="mini-row"><span>' + t('paidBy') + ' ' + esc(cached.payer.user) + '</span><span class="amt-lime">+' + money(cached.payer.amount, cached.currency) + '</span></div>');
           cached.shares.forEach(function (s) {
             rows.push('<div class="mini-row"><span>' + esc(s.user) + '</span><span class="amt-coral">-' + money(s.amount, cached.currency) + '</span></div>');
           });
