@@ -161,6 +161,7 @@ NOTIFY_STRINGS = {
         "added_many": '{payer} added a new expense "{desc}" for {who} ({amt})',
         "settled": "{from_m} paid {to_m} {amt} to settle up",
         "and": "and",
+        "trip_reset": "{user} reset the trip. Total spent: {amt}",
     },
     "ru": {
         "joined": "{user} присоединился(-лась) к группе",
@@ -168,6 +169,7 @@ NOTIFY_STRINGS = {
         "added_many": '{payer} добавил(а) новый расход «{desc}» для {who} ({amt})',
         "settled": "{from_m} перевёл(а) {to_m} {amt}",
         "and": "и",
+        "trip_reset": "{user} сбросил(а) поездку. Всего потрачено: {amt}",
     },
 }
 
@@ -434,6 +436,70 @@ async def settle_debt(req: Request, tg_user: dict = Depends(require_telegram_use
             pass
 
     return {"status": "ok"}
+
+
+@app.post("/api/reset_trip")
+async def reset_trip(req: Request, tg_user: dict = Depends(require_telegram_user)):
+    data = await req.json()
+    chat_id = str(data.get("chat_id", "default"))
+
+    resetter = resolve_user_name(chat_id, tg_user["id"])
+    if not resetter:
+        raise HTTPException(status_code=403, detail="You are not a recognized member of this group")
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Determine default currency, same logic as /api/balances
+    cursor.execute(
+        "SELECT currency, COUNT(*) as cnt, SUM(amount) as total FROM expenses "
+        "WHERE chat_id=? AND amount > 0 AND tx_id != 'join' AND description != 'Settled debt' "
+        "GROUP BY currency ORDER BY cnt DESC, total DESC, currency ASC",
+        (chat_id,),
+    )
+    cur_rows = cursor.fetchall()
+    default_currency = cur_rows[0]["currency"] if cur_rows else "EUR"
+
+    # Verify everyone is actually settled, server-side — never trust the client's state alone
+    cursor.execute("SELECT user_name, currency, SUM(amount) as balance FROM expenses WHERE chat_id=? GROUP BY user_name, currency", (chat_id,))
+    totals_by_user = {}
+    for row in cursor.fetchall():
+        cur = row["currency"] or "EUR"
+        totals_by_user.setdefault(row["user_name"], 0.0)
+        totals_by_user[row["user_name"]] += convert_to(default_currency, row["balance"] or 0, cur)
+
+    not_settled = [u for u, b in totals_by_user.items() if abs(round(b, 2)) > 0.01]
+    if not_settled:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Everyone must be settled up before resetting the trip")
+
+    # Total spend before wiping, for the bot notification
+    cursor.execute(
+        "SELECT currency, SUM(amount) as s FROM expenses WHERE chat_id=? AND amount > 0 AND tx_id != 'join' AND description != 'Settled debt' GROUP BY currency",
+        (chat_id,),
+    )
+    total_spend = 0.0
+    for row in cursor.fetchall():
+        total_spend += convert_to(default_currency, row["s"] or 0, row["currency"] or "EUR")
+    total_spend = round(total_spend, 2)
+
+    # Wipe the ledger, keep membership rows ('join') intact
+    cursor.execute("DELETE FROM expenses WHERE chat_id=? AND tx_id != 'join'", (chat_id,))
+    conn.commit()
+    members_map = get_members_map(cursor, chat_id)
+    conn.close()
+
+    if chat_id != "default" and chat_id.startswith("-"):
+        try:
+            lang = get_chat_bot_lang(chat_id)
+            S = NOTIFY_STRINGS[lang]
+            resetter_mention = mention(resetter, members_map)
+            msg = S["trip_reset"].format(user=resetter_mention, amt=f"{cur_sym(default_currency)}{total_spend:.2f}")
+            send_telegram_message(chat_id, msg)
+        except Exception:
+            pass
+
+    return {"status": "ok", "total_spend": total_spend, "currency": default_currency}
 
 
 @app.get("/api/expense_detail")

@@ -363,6 +363,8 @@
       nothingHereBig: "Nothing here yet", nothingHereSub: "Expenses and settlements will appear here.",
       settledWith: "settled with", settlement: "Settlement",
       deleteConfirm: "Delete this transaction?", leaveConfirm: "Remove this group from your wallet?",
+      resetTrip: "Reset trip",
+      resetTripConfirm: "Reset the trip? This clears {amt} of recorded spending for everyone. This can't be undone.",
       couldNotLoad: "Could not load details", loading: "Loading…", you: "you",
       memberW: ["member", "members"], peopleW: ["person", "people"], txW: ["transaction", "transactions"],
       groupW: ["group", "groups"], tapToOpen: "tap to open", total: "total",
@@ -391,6 +393,8 @@
       nothingHereBig: "Пока ничего нет", nothingHereSub: "Здесь будут отображаться траты и расчёты.",
       settledWith: "рассчитался(лась) с", settlement: "Расчёт",
       deleteConfirm: "Удалить эту транзакцию?", leaveConfirm: "Удалить эту группу из вашего кошелька?",
+      resetTrip: "Сбросить поездку",
+      resetTripConfirm: "Сбросить поездку? Это очистит {amt} учтённых трат для всех. Это нельзя отменить.",
       couldNotLoad: "Не удалось загрузить детали", loading: "Загрузка…", you: "вы",
       memberW: ["участник", "участника", "участников"], peopleW: ["человек", "человека", "человек"], txW: ["транзакция", "транзакции", "транзакций"],
       groupW: ["группа", "группы", "групп"], tapToOpen: "нажмите, чтобы открыть", total: "всего",
@@ -398,6 +402,14 @@
   };
 
   function t(key) { return (I18N[state.lang] && I18N[state.lang][key]) || I18N.en[key] || key; }
+
+  function tp(key, params) {
+    var s = t(key);
+    Object.keys(params || {}).forEach(function (k) {
+      s = s.split('{' + k + '}').join(params[k]);
+    });
+    return s;
+  }
 
   function ruForm(n, forms) {
     n = Math.abs(n) % 100;
@@ -559,6 +571,32 @@
     const r = await fetch('/api/settle', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tgInitData() }, body: JSON.stringify({ chat_id: state.chatId, from_user: from_user, to_user: to_user, amount: amount, currency: currency || 'EUR' }) });
     if (!r.ok) throw new Error('Could not settle');
     return r.json();
+  }
+  async function apiResetTrip() {
+    if (!tgInitData()) throw new Error(t('openedOutside'));
+    const r = await fetch('/api/reset_trip', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tgInitData() }, body: JSON.stringify({ chat_id: state.chatId }) });
+    if (!r.ok) throw new Error('Could not reset trip');
+    return r.json();
+  }
+
+  function resetTripAction(totalSpend, cur) {
+    if (!tgInitData()) { haptic('error'); alert(t('openedOutside')); return; }
+    const confirmFn = (TG && TG.showConfirm)
+      ? (msg, cb) => TG.showConfirm(msg, cb)
+      : (msg, cb) => cb(window.confirm(msg));
+    confirmFn(tp('resetTripConfirm', { amt: money(totalSpend, cur) }), (ok) => {
+      if (!ok) return;
+      setBusy(true);
+      apiResetTrip().then(() => {
+        haptic('success');
+        return loadData();
+      }).then(() => {
+        go('balances');
+      }).catch((e) => {
+        haptic('error');
+        alert(e.message);
+      }).finally(() => setBusy(false));
+    });
   }
 
   function setLoading(on) { document.body.classList.toggle('loading', on); }
@@ -1075,6 +1113,12 @@
       transferList = '<div class="empty" style="padding:30px 12px"><div class="big">' + t('allSettledUp') + '</div><div class="sub">' + t('noOutstanding') + '</div></div>';
     }
 
+    const allSettled = !transfersByCur.length && !hasImbalance;
+    const showReset = allSettled && totalSpend > 0.01;
+    const resetBtnHtml = showReset
+      ? '<button class="pill-cta" id="reset-trip-btn" style="background:var(--coral);color:var(--ink);margin-top:14px;">' + t('resetTrip') + '</button>'
+      : '';
+
     const cluster = avatarCluster(users);
 
     sec.innerHTML =
@@ -1082,6 +1126,7 @@
       '<h1 class="headline">' + t('settleUp') + '</h1>' +
       '<div class="subhead">' + t('settleSub') + '</div>' +
       '<div class="stats-card"><div class="stats-label">' + t('recentSpend') + (hasMultiSpend ? ' (' + t('convertedTo') + ' ' + defCur + ')' : '') + '</div><div class="stats-total">' + money(totalSpend, defCur) + '</div><div class="bars">' + bars + '</div></div>' +
+      resetBtnHtml +
       '<div class="field-label">' + t('suggestedPayments') + '</div>' +
       (hasImbalance ? '<div class="banner">' + t('imbalanceBanner') + '</div>' : '') +
       '<div class="settle-list">' + transferList + '</div>' +
@@ -1090,6 +1135,8 @@
     const settleBack = $('#settle-back', sec);
     if (settleBack) settleBack.addEventListener('click', () => go('balances'));
     $$('[data-settle]', sec).forEach((b) => b.addEventListener('click', () => settleAction(parseInt(b.getAttribute('data-settle'), 10))));
+    const resetBtn = $('#reset-trip-btn', sec);
+    if (resetBtn) resetBtn.addEventListener('click', () => resetTripAction(totalSpend, defCur));
   }
 
   function avatarCluster(users) {
