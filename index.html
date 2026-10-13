@@ -245,6 +245,22 @@
   .spinner { width:34px; height:34px; border:3px solid var(--ink); border-top-color: transparent; border-radius:50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ---- Pull-to-refresh ---- */
+  .ptr {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 150;
+    height: 60px; display: flex; align-items: flex-end; justify-content: center;
+    pointer-events: none;
+    transform: translateY(-60px);
+    transition: transform 0.22s ease;
+  }
+  .ptr.dragging { transition: none; }
+  .ptr.refreshing { transform: translateY(0); }
+  .ptr-spinner {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 3px solid rgba(17,17,16,0.15); border-top-color: var(--ink);
+  }
+  .ptr.refreshing .ptr-spinner { animation: spin 0.8s linear infinite; }
+
   .error-toast {
     position: fixed; top: 12px; left: 12px; right: 12px;
     background: var(--coral); color: var(--ink);
@@ -267,6 +283,7 @@
   <section id="screen-activity" class="screen"></section>
 </div>
 <div class="loading-overlay"><div class="spinner"></div></div>
+<div class="ptr" id="ptr"><div class="ptr-spinner"></div></div>
 
 <script>
 (function () {
@@ -466,7 +483,9 @@
     safe(() => TG.setHeaderColor('#F1F0EC'));
     safe(() => TG.setBackgroundColor('#F1F0EC'));
     safe(() => TG.BackButton.onClick(onBackButton));
-    safe(() => { TG.isVerticalSwipesEnabled = true; });
+    // Disable Telegram's swipe-down-to-close so the top swipe is free for
+    // pull-to-refresh. Users can still close the app via the native close button.
+    safe(() => { TG.isVerticalSwipesEnabled = false; });
   }
 
   var _touchStartY = 0, _touchOnInput = false;
@@ -482,6 +501,83 @@
         active.blur();
       }
     }
+  }, { passive: true });
+
+  // ---- Pull-to-refresh ----
+  // Drag down from the top of the page to reload data for the current screen.
+  var ptrEl = document.getElementById('ptr');
+  var ptrState = { active: false, startY: 0, pull: 0, refreshing: false };
+  var PTR_THRESHOLD = 64;
+
+  function ptrScrollTop() {
+    return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  }
+
+  window.addEventListener('touchstart', function (e) {
+    if (ptrState.refreshing || state.loading || document.body.classList.contains('busy')) return;
+    if (ptrScrollTop() > 0) return;
+    if (e.touches.length !== 1) return;
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+    if (t && t.closest && t.closest('.currency-row, .avatar-row')) return;
+    ptrState.active = true;
+    ptrState.startY = e.touches[0].clientY;
+    ptrState.pull = 0;
+  }, { passive: true });
+
+  function ptrDraw() {
+    if (!ptrEl) return;
+    ptrEl.classList.add('dragging');
+    ptrEl.style.transform = 'translateY(' + (ptrState.pull - 60) + 'px)';
+  }
+
+  function ptrSettle() {
+    if (!ptrEl) return;
+    ptrEl.classList.remove('dragging');
+    ptrEl.style.transform = '';
+  }
+
+  window.addEventListener('touchmove', function (e) {
+    if (!ptrState.active) return;
+    if (e.touches.length !== 1 || ptrScrollTop() > 0) {
+      ptrState.active = false;
+      ptrSettle();
+      return;
+    }
+    var dy = e.touches[0].clientY - ptrState.startY;
+    if (dy <= 0) {
+      ptrState.pull = 0;
+      ptrDraw();
+      return;
+    }
+    ptrState.pull = Math.min(dy * 0.45, 96);
+    if (e.cancelable) e.preventDefault();
+    ptrDraw();
+  }, { passive: false });
+
+  function startPtrRefresh() {
+    if (ptrState.refreshing) return;
+    ptrState.refreshing = true;
+    if (ptrEl) ptrEl.classList.add('refreshing');
+    haptic('impact', 'light');
+    var p = state.screen === 'wallet' ? loadGroups(true) : loadData(true);
+    Promise.resolve(p).catch(function () {}).then(function () {
+      ptrState.refreshing = false;
+      if (ptrEl) { ptrEl.classList.remove('refreshing'); ptrEl.style.transform = ''; }
+    });
+  }
+
+  window.addEventListener('touchend', function () {
+    if (!ptrState.active) return;
+    ptrState.active = false;
+    ptrSettle();
+    if (ptrState.pull >= PTR_THRESHOLD) startPtrRefresh();
+  }, { passive: true });
+
+  window.addEventListener('touchcancel', function () {
+    if (!ptrState.active) return;
+    ptrState.active = false;
+    ptrSettle();
   }, { passive: true });
 
   function recoverContext() {
@@ -602,9 +698,8 @@
   function setLoading(on) { document.body.classList.toggle('loading', on); }
   function setBusy(on) { document.body.classList.toggle('busy', on); }
 
-  async function loadData() {
-    setLoading(true);
-    state.error = null;
+  async function loadData(silent) {
+    if (!silent) setLoading(true);
     try {
       const d = await apiBalances();
       if (d.me) state.user.name = d.me;
@@ -623,22 +718,25 @@
       state.currencies = d.currencies || ['EUR'];
       state.expenseShares = d.expense_shares || {};
       state.imbalance = d.imbalance || {};
+      state.error = null;
     } catch (e) {
-      state.error = e.message;
+      if (silent) showError(e.message);
+      else state.error = e.message;
     } finally {
       setLoading(false);
       render();
     }
   }
 
-  async function loadGroups() {
-    setLoading(true);
-    state.error = null;
+  async function loadGroups(silent) {
+    if (!silent) setLoading(true);
     try {
       const d = await apiGroups();
       state.groups = d.groups || [];
+      state.error = null;
     } catch (e) {
-      state.error = e.message;
+      if (silent) showError(e.message);
+      else state.error = e.message;
     } finally {
       setLoading(false);
       render();
