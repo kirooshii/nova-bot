@@ -65,7 +65,23 @@ python announce.py --test <your_tg_id> "..."  # preview to yourself first
 python announce.py "Your message here"        # send to everyone
 ```
 
-HTML formatting is on by default (`<b>`, `<i>`); use `--plain` for plain text.
+For long or multi-line messages, write the text to a file (avoids shell quoting
+problems) and use `--markdown` so `**bold**` works — all other MarkdownV2
+special characters are escaped automatically:
+
+```bash
+cat > message.txt <<'EOF'
+**Nova has been updated!**
+
+**Changes:**
+- first change
+- second change
+EOF
+python announce.py --file message.txt --markdown --test <your_tg_id>  # preview
+python announce.py --file message.txt --markdown                      # send
+```
+
+HTML formatting is the default (`<b>`, `<i>`); use `--plain` for plain text.
 Users who never started a private chat with the bot can't be reached (Telegram
 restriction) and are reported as failed at the end.
 

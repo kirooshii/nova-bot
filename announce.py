@@ -15,7 +15,8 @@ Usage:
   python announce.py --plain "No <b>HTML</b> here"      # send as plain text
 
 HTML (<b>, <i>, <a href=...>) is enabled by default — escape & < > when not wanted,
-or pass --plain.
+or pass --plain. Use --markdown to write with **bold** MarkdownV2 syntax; all other
+special characters are escaped automatically, so plain text never breaks the message.
 """
 
 from __future__ import annotations
@@ -29,6 +30,24 @@ import urllib.error
 import urllib.request
 
 from config import BOT_TOKEN
+
+# Characters Telegram's MarkdownV2 treats specially — escaped automatically.
+_MD_SPECIAL = set(r"_*[]()~`>#+-=|{}.!\\")
+
+
+def to_markdown_v2(text: str) -> str:
+    """Escape MarkdownV2 specials, keeping **bold** markers intact."""
+    out = []
+    for i, part in enumerate(text.split("**")):
+        if i % 2 == 1:  # inside a bold span — escape content, keep markers
+            out.append("**" + _escape_md(part) + "**")
+        else:
+            out.append(_escape_md(part))
+    return "".join(out)
+
+
+def _escape_md(text: str) -> str:
+    return "".join("\\" + ch if ch in _MD_SPECIAL else ch for ch in text)
 
 
 def get_db():
@@ -79,7 +98,8 @@ def main():
     ap = argparse.ArgumentParser(description="PM an announcement to all Nova users")
     ap.add_argument("message", nargs="?", help="message text (HTML allowed)")
     ap.add_argument("--file", help="read message text from a file")
-    ap.add_argument("--plain", action="store_true", help="send as plain text (no HTML parsing)")
+    ap.add_argument("--plain", action="store_true", help="send as plain text (no formatting)")
+    ap.add_argument("--markdown", action="store_true", help="send as MarkdownV2 (**bold** works, other specials auto-escaped)")
     ap.add_argument("--dry-run", action="store_true", help="list recipients without sending")
     ap.add_argument("--test", type=int, metavar="TG_USER_ID", help="send only to this one user id (preview)")
     ap.add_argument("--sleep", type=float, default=0.1, help="delay between sends in seconds (default: 0.1)")
@@ -107,7 +127,14 @@ def main():
         sys.exit("BOT_TOKEN is not set (add it to .env)")
     print(f"Sending to {len(user_ids)} user(s)...")
 
-    parse_mode = None if args.plain else "HTML"
+    if args.plain and args.markdown:
+        ap.error("--plain and --markdown are mutually exclusive")
+    if args.markdown:
+        parse_mode, text = "MarkdownV2", to_markdown_v2(text)
+    elif args.plain:
+        parse_mode = None
+    else:
+        parse_mode = "HTML"
     sent, failed = 0, []
     for i, uid in enumerate(user_ids, 1):
         try:
