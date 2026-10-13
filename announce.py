@@ -113,20 +113,6 @@ def main():
     if not text:
         ap.error("provide a message or use --file")
 
-    if args.test:
-        user_ids = [args.test]
-    else:
-        user_ids = load_user_ids()
-        if args.dry_run:
-            print(f"Dry run — {len(user_ids)} recipient(s), nothing sent:")
-            for uid in user_ids:
-                print(f"  {uid}")
-            return
-
-    if not BOT_TOKEN:
-        sys.exit("BOT_TOKEN is not set (add it to .env)")
-    print(f"Sending to {len(user_ids)} user(s)...")
-
     if args.plain and args.markdown:
         ap.error("--plain and --markdown are mutually exclusive")
     if args.markdown:
@@ -135,6 +121,26 @@ def main():
         parse_mode = None
     else:
         parse_mode = "HTML"
+
+    if args.test:
+        user_ids = [args.test]
+    else:
+        user_ids = load_user_ids()
+        if args.dry_run:
+            print(f"Dry run — {len(user_ids)} recipient(s), nothing sent:")
+            for uid in user_ids:
+                print(f"  {uid}")
+            print()
+            print(f"Message as it will be sent ({parse_mode or 'plain text'}):")
+            print(text)
+            return
+
+    if not BOT_TOKEN:
+        sys.exit("BOT_TOKEN is not set (add it to .env)")
+    print(f"Sending to {len(user_ids)} user(s)...")
+    print(f"Message ({parse_mode or 'plain text'}):")
+    print(text)
+    print()
     sent, failed = 0, []
     for i, uid in enumerate(user_ids, 1):
         try:
