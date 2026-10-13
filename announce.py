@@ -144,9 +144,16 @@ def main():
     sent, failed = 0, []
     for i, uid in enumerate(user_ids, 1):
         try:
-            send_message(uid, text, parse_mode)
+            resp = send_message(uid, text, parse_mode)
             sent += 1
             print(f"[{i}/{len(user_ids)}] sent to {uid}")
+            entities = (resp.get("result") or {}).get("entities") or []
+            if entities:
+                print("  Telegram stored formatting entities: " + ", ".join(
+                    f"{e.get('type')}@{e.get('offset')}:{e.get('length')}" for e in entities
+                ))
+            else:
+                print("  (no formatting entities — message is plain text)")
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "replace")
             reason = describe_403(detail) if e.code == 403 else f"HTTP {e.code}"
