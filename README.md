@@ -15,10 +15,11 @@ Track shared expenses in Telegram groups with a Wallet-style interface. Add expe
 ## Architecture
 
 ```
-bot.py     — Aiogram bot, handles /start and /split commands, sends deep links
-app.py     — FastAPI server, serves the Mini App + REST API (port 8000)
-index.html — Single-page frontend (Telegram WebApp SDK)
-config.py  — Environment config, loads BOT_TOKEN from .env
+bot.py       — Aiogram bot, handles /start and /split commands, sends deep links
+app.py       — FastAPI server, serves the Mini App + REST API (port 8000)
+index.html   — Single-page frontend (Telegram WebApp SDK)
+announce.py  — One-off tool to PM all users an announcement
+config.py    — Environment config, loads BOT_TOKEN from .env
 ```
 
 ## Local Setup
@@ -53,6 +54,20 @@ python bot.py      # Telegram bot (long polling)
 | `/api/settle` | POST | Record a settlement payment |
 | `/api/group_photo` | GET | Serve cached group profile photo |
 | `/api/leave_group` | POST | Remove user from a group |
+
+## Announcements
+
+PM an update announcement to every user (ids come from the `members` table):
+
+```bash
+python announce.py --dry-run "Your message"   # check who will get it
+python announce.py --test <your_tg_id> "..."  # preview to yourself first
+python announce.py "Your message here"        # send to everyone
+```
+
+HTML formatting is on by default (`<b>`, `<i>`); use `--plain` for plain text.
+Users who never started a private chat with the bot can't be reached (Telegram
+restriction) and are reported as failed at the end.
 
 ## License
 

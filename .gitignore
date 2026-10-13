@@ -8,6 +8,7 @@ __pycache__/
 
 # Database (generated at runtime)
 nova.db
+nova.db.*
 
 # Cached group photos
 photos/
