@@ -136,35 +136,17 @@ def main():
             print(f"Dry run — {len(user_ids)} recipient(s), nothing sent:")
             for uid in user_ids:
                 print(f"  {uid}")
-            print()
-            print(f"Message as it will be sent ({parse_mode or 'plain text'}):")
-            print(text)
             return
 
     if not BOT_TOKEN:
         sys.exit("BOT_TOKEN is not set (add it to .env)")
     print(f"Sending to {len(user_ids)} user(s)...")
-    print(f"Message ({parse_mode or 'plain text'}):")
-    print(text)
-    print()
     sent, failed = 0, []
     for i, uid in enumerate(user_ids, 1):
         try:
-            resp = send_message(uid, text, parse_mode)
+            send_message(uid, text, parse_mode)
             sent += 1
             print(f"[{i}/{len(user_ids)}] sent to {uid}")
-            result = resp.get("result") or {}
-            entities = result.get("entities") or []
-            if entities:
-                print("  Telegram stored formatting entities: " + ", ".join(
-                    f"{e.get('type')}@{e.get('offset')}:{e.get('length')}" for e in entities
-                ))
-            else:
-                print("  (no formatting entities — message is plain text)")
-            stored = result.get("text")
-            if stored is not None:
-                print("  Stored text (exactly as Telegram has it):")
-                print("  " + str(stored).replace("\n", "\n  "))
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "replace")
             reason = describe_403(detail) if e.code == 403 else f"HTTP {e.code}"
