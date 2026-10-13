@@ -36,11 +36,17 @@ _MD_SPECIAL = set(r"_*[]()~`>#+-=|{}.!\\")
 
 
 def to_markdown_v2(text: str) -> str:
-    """Escape MarkdownV2 specials, keeping **bold** markers intact."""
+    """Convert app-style **bold** to Bot API MarkdownV2 *bold*.
+
+    In the Telegram app, bold is written **text**, but the Bot API's MarkdownV2
+    uses a SINGLE asterisk (*text*). Double asterisks parse as two empty bold
+    entities — the markers get stripped and the text stays plain. All other
+    MarkdownV2 special characters are escaped automatically.
+    """
     out = []
     for i, part in enumerate(text.split("**")):
         if i % 2 == 1:  # inside a bold span — escape content, keep markers
-            out.append("**" + _escape_md(part) + "**")
+            out.append("*" + _escape_md(part) + "*")
         else:
             out.append(_escape_md(part))
     return "".join(out)
